@@ -46,6 +46,16 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
+    extern uintptr_t __vectors[];
+    const uint32_t PROT_MODE_CSEG = 0x8;
+    for (int i = 0; i < 256; ++i) {
+        SETGATE(idt[i], 0, PROT_MODE_CSEG, __vectors[i], 0);
+    }
+    // set the DPL of 0x80 to 3
+    SETGATE(idt[T_SYSCALL], 0, PROT_MODE_CSEG, __vectors[T_SYSCALL], 3);
+
+
+    lidt(&idt_pd);
 }
 
 static const char *
@@ -147,6 +157,10 @@ trap_dispatch(struct trapframe *tf) {
          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
          * (3) Too Simple? Yes, I think so!
          */
+        if (++ticks == TICK_NUM) {
+            print_ticks();
+            ticks = 0;
+        }
         break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
