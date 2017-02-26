@@ -118,9 +118,9 @@ qemu-system-i386 bootloader
     * 低2位的0x17表明表的大小为24
     * 高4位为表的起始地址
 * 将控制寄存器CR0的PE (Protection Enable, bit 0)设为1
+* `ljmp $PROT_MODE_CSEG, $protcseg` 将cs寄存器设为$PROT_MODE_CSEG，将eip设为protcseg所指地址
 
 其中GDT由asm.h中提供的宏展开生成，一般描述符的结构如下
-
 
 ```
   31                23                15                7               0
@@ -135,7 +135,7 @@ qemu-system-i386 bootloader
  +-----------------+-----------------+-----------------+-----------------+
 ```
 
-`SEG_NULLASM`会产生一个空描述符，SEG_ASM(type,base,lim)会根据参数生成所需的描述符，注意这里取了limit的高20位。
+`SEG_NULLASM`会产生一个空描述符，SEG_ASM(type,base,lim)会根据参数生成所需的描述符，注意这里取了lim的高20位作为LIMIT。
 
 此处描述符定义的代码段和数据段都是从0x0开始，容量4GB的段。
 
@@ -179,7 +179,7 @@ BootLoader中读取硬盘的功能是基于`static void readsect(void *dst, uint
 
 ### 初始化中断描述符表
 
-对idt数组中的每一个终端描述符调用SETGATE进行设置，要注意段描述符应该与bootasm.S中设置的代码段描述符地址(0x8)一致。
+对idt数组中的每一个终端描述符调用SETGATE进行设置，要注意段描述符应该与`voidpmm_init(void)`中设置的内核代码段描述符地址(0x8)一致。
 
 由于要支持应用程序发出软中断`int 0x80`，需特别将T_SYSCALL的DPL设为3。
 

@@ -47,13 +47,12 @@ idt_init(void) {
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
     extern uintptr_t __vectors[];
-    const uint32_t PROT_MODE_CSEG = 0x8;
-    for (int i = 0; i < 256; ++i) {
-        SETGATE(idt[i], 0, PROT_MODE_CSEG, __vectors[i], 0);
+    int i = 0;
+    for (i = 0; i < 256; ++i) {
+        SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
     // set the DPL of 0x80 to 3
-    SETGATE(idt[T_SYSCALL], 0, PROT_MODE_CSEG, __vectors[T_SYSCALL], 3);
-
+    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
 
     lidt(&idt_pd);
 }
