@@ -77,7 +77,6 @@ default_init_memmap(struct Page *base, size_t n) {
     base->property = n;
     SetPageProperty(base);
     nr_free += n;
-    // list_add(&free_list, &(base->page_link));
     if (list_empty(&free_list)) {
         list_add(&free_list, &(base->page_link));
     } else {
