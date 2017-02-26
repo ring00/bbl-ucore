@@ -371,9 +371,9 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     pde_t *pdep = pgdir + PDX(la);  // (1) find page directory entry
     pte_t *ptep = NULL;
     if (*pdep & PTE_P) {  // (2) check if entry is not present
-        ptep = KADDR(*pdep & 0xFFFFF000 + PTX(la));
+        ptep = KADDR((pte_t*)(*pdep & 0xFFFFF000) + PTX(la));
     } else if (create) {
-        Page *page = alloc_page();  // (3) check if creating is needed, then
+        struct Page* page = alloc_page();  // (3) check if creating is needed, then
                                     // alloc page for page table
         set_page_ref(page, 1);      // (4) set page reference
 
@@ -382,7 +382,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
         *pdep = page2pa(page) |
                 PTE_USER;  // (7) set page directory entry's permission
 
-        ptep = page2kva(page) + PTX(la);
+        ptep = (pte_t*)page2kva(page) + PTX(la);
     }
     return ptep;  // (8) return page table entry
 }
@@ -422,7 +422,7 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
      *   PTE_P           0x001                   // page table/directory entry flags bit : Present
      */
     if (*ptep & PTE_P) {               //(1) check if this page table entry is
-        Page *page = pte2page(*ptep);  //(2) find corresponding page to pte
+        struct Page *page = pte2page(*ptep);  //(2) find corresponding page to pte
         page_ref_dec(page);            //(3) decrease page reference
         if (page_ref(page) ==
             0) {  //(4) and free this page when page reference reachs 0
