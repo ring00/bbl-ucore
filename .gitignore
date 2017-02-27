@@ -21,3 +21,4 @@ chytesting
 disk0
 *.orig
 .DS_Store
+.tags*
