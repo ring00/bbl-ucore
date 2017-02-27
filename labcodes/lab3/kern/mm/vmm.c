@@ -367,8 +367,8 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
 
     /*LAB3 EXERCISE 1: YOUR CODE*/
     ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
-                                            //PT(Page Table) isn't existed, then
-                                            //create a PT.
+                                         //PT(Page Table) isn't existed, then
+                                         //create a PT.
     if (*ptep == 0) {
         pgdir_alloc_page(mm->pgdir, addr, perm);  //(2) if the phy addr isn't
                                                   //exist, then alloc a page &
@@ -397,12 +397,12 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             swap_in(mm, addr, &page);  //(1）According to the mm AND addr, try
                                        //to load the content of right disk page
                                        //    into the memory which page managed.
-            page_insert(pgdir, page, addr, perm);  //(2) According to the mm,
+            page_insert(mm->pgdir, page, addr, perm);  //(2) According to the mm,
                                                    //addr AND page, setup the
                                                    //map of phy addr <--->
                                                    //logical addr
             swap_map_swappable(mm, addr, page,
-                               0);  //(3) make the page swappable.
+                               1);  //(3) make the page swappable.
             page->pra_vaddr = addr;
         } else {
             cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
