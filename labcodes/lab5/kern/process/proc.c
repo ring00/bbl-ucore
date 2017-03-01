@@ -421,13 +421,18 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     copy_mm(clone_flags, proc);
     copy_thread(proc, stack, tf);
 
-    const int pid = get_pid();
-    proc->pid = pid;
-    list_add(hash_list + pid_hashfn(pid), &(proc->hash_link));
-    set_links(proc);
+    bool intr_flag;
+    local_intr_save(intr_flag);
+    {
+        proc->pid = get_pid();
+        hash_proc(proc);
+        set_links(proc);
+    }
+    local_intr_restore(intr_flag);
 
     wakeup_proc(proc);
-    ret = pid;
+
+    ret = proc->pid;
 fork_out:
     return ret;
 
