@@ -238,7 +238,8 @@ trap_dispatch(struct trapframe *tf) {
          * IMPORTANT FUNCTIONS:
 	     * sched_class_proc_tick
          */
-        if (++ticks % TICK_NUM == 0 && current) {
+        ++ticks;
+        if (current) {
             sched_class_proc_tick(current);
         }
         break;

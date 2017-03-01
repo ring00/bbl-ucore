@@ -75,7 +75,7 @@ stride_enqueue(struct run_queue *rq, struct proc_struct *proc) {
         skew_heap_init(&(proc->run_link));
         rq->lab6_run_pool = &(proc->run_link);
     } else {
-        skew_heap_insert(rq->lab6_run_pool, &(proc->run_link), proc_stride_comp_f);
+        rq->lab6_run_pool = skew_heap_insert(rq->lab6_run_pool, &(proc->run_link), proc_stride_comp_f);
     }
 
     if (proc->time_slice == 0 || proc->time_slice > rq->max_time_slice) {
@@ -103,8 +103,9 @@ stride_dequeue(struct run_queue *rq, struct proc_struct *proc) {
       *         list_del_init: remove a entry from the  list
       */
     assert(!list_empty(&(proc->run_link)) && proc->rq == rq && rq->lab6_run_pool);
-    skew_heap_remove(rq->lab6_run_pool, proc, proc_stride_comp_f);
+    rq->lab6_run_pool = skew_heap_remove(rq->lab6_run_pool, proc, proc_stride_comp_f);
     rq->proc_num--;
+    proc->rq = NULL;
 }
 /*
  * stride_pick_next pick the element from the ``run-queue'', with the
@@ -128,10 +129,11 @@ stride_pick_next(struct run_queue *rq) {
       * (2) update p;s stride value: p->lab6_stride
       * (3) return p
       */
-    struct proc_struct* proc = le2proc(rq->lab6_run_pool);
-    if (proc) {
-        proc->lab6_stride += BIG_STRIDE / lab6_priority;
+    if (rq->lab6_run_pool == NULL) {
+      return NULL;
     }
+    struct proc_struct* proc = le2proc(rq->lab6_run_pool, lab6_run_pool);
+    proc->lab6_stride += BIG_STRIDE / lab6_priority;
     return proc;
 }
 
