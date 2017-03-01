@@ -124,6 +124,7 @@ alloc_proc(void) {
             .pid = -1,
             .cr3 = boot_cr3
         };
+    list_init(&(proc->run_link));
     }
     return proc;
 }

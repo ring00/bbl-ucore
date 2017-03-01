@@ -41,6 +41,9 @@ stride_init(struct run_queue *rq) {
       * (2) init the run pool: rq->lab6_run_pool
       * (3) set number of process: rq->proc_num to 0       
       */
+    list_init(&(rq->run_list));
+    rq->lab6_run_pool = NULL;
+    rq->proc_num = 0;
 }
 
 /*
@@ -67,6 +70,20 @@ stride_enqueue(struct run_queue *rq, struct proc_struct *proc) {
       * (3) set proc->rq pointer to rq
       * (4) increase rq->proc_num
       */
+    assert(list_empty(&(proc->run_link)));
+    if (rq->lab6_run_pool == NULL) {
+        skew_heap_init(&(proc->run_link));
+        rq->lab6_run_pool = &(proc->run_link);
+    } else {
+        skew_heap_insert(rq->lab6_run_pool, &(proc->run_link), proc_stride_comp_f);
+    }
+
+    if (proc->time_slice == 0 || proc->time_slice > rq->max_time_slice) {
+        proc->time_slice = rq->max_time_slice;
+    }
+
+    proc->rq = rq;
+    rq->proc_num++;
 }
 
 /*
@@ -85,6 +102,9 @@ stride_dequeue(struct run_queue *rq, struct proc_struct *proc) {
       *         skew_heap_remove: remove a entry from skew_heap
       *         list_del_init: remove a entry from the  list
       */
+    assert(!list_empty(&(proc->run_link)) && proc->rq == rq && rq->lab6_run_pool);
+    skew_heap_remove(rq->lab6_run_pool, proc, proc_stride_comp_f);
+    rq->proc_num--;
 }
 /*
  * stride_pick_next pick the element from the ``run-queue'', with the
@@ -108,6 +128,11 @@ stride_pick_next(struct run_queue *rq) {
       * (2) update p;s stride value: p->lab6_stride
       * (3) return p
       */
+    struct proc_struct* proc = le2proc(rq->lab6_run_pool);
+    if (proc) {
+        proc->lab6_stride += BIG_STRIDE / lab6_priority;
+    }
+    return proc;
 }
 
 /*
@@ -121,6 +146,12 @@ stride_pick_next(struct run_queue *rq) {
 static void
 stride_proc_tick(struct run_queue *rq, struct proc_struct *proc) {
      /* LAB6: YOUR CODE */
+    if (proc->time_slice > 0) {
+        proc->time_slice--;
+    }
+    if (proc->time_slice == 0) {
+        proc->need_resched = 1;
+    }
 }
 
 struct sched_class default_sched_class = {
