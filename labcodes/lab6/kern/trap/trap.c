@@ -239,12 +239,10 @@ trap_dispatch(struct trapframe *tf) {
 	     * sched_class_proc_tick
          */
         ++ticks;
-        if (current) {
-            if (current == idleproc || current->time_slice == 0) {
-                current->need_resched = 1;
-            } else if (current->time_slice > 0) {
-                current->time_slice--;
-            }
+        if (current == idleproc || current->time_slice == 0) {
+            current->need_resched = 1;
+        } else if (current->time_slice > 0) {
+            current->time_slice--;
         }
         break;
     case IRQ_OFFSET + IRQ_COM1:
