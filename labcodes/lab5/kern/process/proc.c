@@ -411,7 +411,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	if ((proc = alloc_proc()) == NULL) {
         goto fork_out;
     }
-    porc->parent = current;
+    proc->parent = current;
     current->wait_state = 0;
 
     if ((ret = setup_kstack(proc)) == -E_NO_MEM) {

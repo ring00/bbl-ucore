@@ -496,8 +496,6 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
    ret = 0;
-#endif
-   ret = 0;
 failed:
     return ret;
 }
