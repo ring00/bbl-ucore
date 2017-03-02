@@ -41,7 +41,7 @@ stride_init(struct run_queue *rq) {
       * (2) init the run pool: rq->lab6_run_pool
       * (3) set number of process: rq->proc_num to 0       
       */
-    // list_init(&(rq->run_list));
+    list_init(&(rq->run_list));
     rq->lab6_run_pool = NULL;
     rq->proc_num = 0;
 }
@@ -70,12 +70,7 @@ stride_enqueue(struct run_queue *rq, struct proc_struct *proc) {
       * (3) set proc->rq pointer to rq
       * (4) increase rq->proc_num
       */
-    if (rq->lab6_run_pool == NULL) {
-        skew_heap_init(&(proc->lab6_run_pool));
-        rq->lab6_run_pool = &(proc->lab6_run_pool);
-    } else {
-        rq->lab6_run_pool = skew_heap_insert(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
-    }
+    rq->lab6_run_pool = skew_heap_insert(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
 
     if (proc->time_slice == 0 || proc->time_slice > rq->max_time_slice) {
         proc->time_slice = rq->max_time_slice;
