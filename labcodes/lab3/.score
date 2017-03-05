@@ -1,0 +1,7 @@
+Check SWAP:              (2.6s)
+  -check pmm:                                OK
+  -check page table:                         OK
+  -check vmm:                                OK
+  -check swap page fault:                    OK
+  -check ticks:                              OK
+Total Score: 45/45

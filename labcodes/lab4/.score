@@ -1,0 +1,8 @@
+Check VMM:               (1.6s)
+  -check pmm:                                OK
+  -check page table:                         OK
+  -check vmm:                                OK
+  -check swap page fault:                    OK
+  -check ticks:                              OK
+  -check initproc:                           OK
+Total Score: 90/90
