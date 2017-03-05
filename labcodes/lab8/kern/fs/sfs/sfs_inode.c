@@ -599,22 +599,49 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
      * (3) If end position isn't aligned with the last block, Rd/Wr some content from begin to the (endpos % SFS_BLKSIZE) of the last block
 	 *       NOTICE: useful function: sfs_bmap_load_nolock, sfs_buf_op	
 	*/
-    // bool intr_flag;
-    // local_intr_save(intr_flag);
-    // {
-    //     sfs_bmap_load_nolock(sfs, sin, blkno, &ino);
-    // }
-    // local_intr_restore(intr_flag);
 
-    if (offset % SFS_BLKSIZE != 0) {
-        sfs_buf_op(sfs, buf, SFS_BLKSIZE - offset % SFS_BLKSIZE, blkno, offset);
+    if ((blkoff = offset % SFS_BLKSIZE) != 0) {
+        size = (nblks != 0) ? (SFS_BLKSIZE - blkoff) : (endpos - offset);
+        if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) {
+            goto out;
+        }
+        if ((ret = sfs_buf_op(sfs, buf, size, ino, blkoff)) != 0) {
+            goto out;
+        }
+
+        alen += size;
+        buf += size;
+
+        if (blkno == 0) {
+            goto out;
+        }
+
         blkno++;
         nblks--;
-        offset = blkno * SFS_BLKSIZE;
     }
-    sfs_block_op(sfs, buf, blkno, nblks);
-    if (endpos % SFS_BLKSIZE != 0) {
-        sfs_buf_op(sfs, buf, endpos % SFS_BLKSIZE, blkno + nblks, (blkno + nblks) * SFS_BLKSIZE);
+
+    while (nblks > 0) {
+        if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) {
+            goto out;
+        }
+        if ((ret = sfs_block_op(sfs, buf, ino, 1)) != 0) {
+            goto out;
+        }
+
+        alen += SFS_BLKSIZE;
+        buf += SFS_BLKSIZE;
+        blkno++;
+        nblks--;
+    }
+
+    if ((size = offset % SFS_BLKSIZE) != 0) {
+        if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) {
+            goto out;
+        }
+        if ((ret = sfs_buf_op(sfs, buf, size, ino, 0)) != 0) {
+            goto out;
+        }
+        alen += SFS_BLKSIZE;
     }
 out:
     *alenp = alen;
