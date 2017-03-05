@@ -471,17 +471,19 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     proc->parent = current;
-    current->wait_state = 0;
+    // current->wait_state = 0;
 
-    if ((ret = setup_kstack(proc)) == -E_NO_MEM) {
+    if ((ret = setup_kstack(proc)) != 0) {
         goto bad_fork_cleanup_proc;
     }
 
     if ((ret = copy_files(clone_flags, proc)) != 0) {
-        goto bad_fork_cleanup_fs;
+        goto bad_fork_cleanup_kstack;
     }
 
-    copy_mm(clone_flags, proc);
+    if ((ret = copy_mm(clone_flags, proc)) != 0) {
+        goto bad_fork_cleanup_fs;
+    }
     copy_thread(proc, stack, tf);
 
     bool intr_flag;
