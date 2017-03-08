@@ -8,7 +8,7 @@
 
 /* You should define the BigStride constant here*/
 /* LAB6: YOUR CODE */
-#define BIG_STRIDE 0x7FFFFFFF /* you should give a value, and is ??? */
+#define BIG_STRIDE (1 << 30) /* you should give a value, and is ??? */
 
 /* The compare function for two skew_heap_node_t's and the
  * corresponding procs*/
@@ -123,7 +123,7 @@ stride_pick_next(struct run_queue *rq) {
       * (3) return p
       */
     if (rq->lab6_run_pool == NULL) {
-      return NULL;
+        return NULL;
     }
     struct proc_struct* proc = le2proc(rq->lab6_run_pool, lab6_run_pool);
     proc->lab6_stride += proc->lab6_priority ? BIG_STRIDE / proc->lab6_priority : BIG_STRIDE;
