@@ -728,20 +728,22 @@ load_icode(int fd, int argc, char **kargv) {
     current->cr3 = PADDR(mm->pgdir);
     lcr3(PADDR(mm->pgdir));
 
-    uint32_t argv_size=0, i;
-    for (i = 0; i < argc; i ++) {
-        argv_size += strnlen(kargv[i],EXEC_MAX_ARG_LEN + 1)+1;
+    int* argv_len = (int*)kmalloc(argc * sizeof(int));
+    int total_len = 0;
+    for (int i = 0; i < argc; ++i) {
+        argv_len[i] = strnlen(kargv[i], EXEC_MAX_ARG_LEN) + 1;
+        total_len += argv_len[i];
     }
 
-    uintptr_t stacktop = USTACKTOP - (argv_size/sizeof(long)+1)*sizeof(long);
-    char** uargv=(char **)(stacktop  - argc * sizeof(char *));
-    
-    argv_size = 0;
-    for (i = 0; i < argc; i ++) {
-        uargv[i] = strcpy((char *)(stacktop + argv_size ), kargv[i]);
-        argv_size +=  strnlen(kargv[i],EXEC_MAX_ARG_LEN + 1)+1;
+    uintptr_t stacktop = USTACKTOP - (total_len / 4 + 1) * 4;
+    char** uargv = (char**)(stacktop - argc * sizeof(char*));
+
+    for (int i = 0; i < argc; ++i) {
+        uargv[i] = strcpy((char*)stacktop, kargv[i]);
+        stacktop += argv_len[i];
     }
-    
+    kfree(argv_len);
+
     stacktop = (uintptr_t)uargv - sizeof(int);
     *(int *)stacktop = argc;
 

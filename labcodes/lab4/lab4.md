@@ -32,6 +32,8 @@ ucore能保证进程pid的唯一，`get_pid`函数会依次增加last_pid的值�
 * 将proc的栈顶位置载入esp寄存器中
 * 将proc的页目录表地址载入cr3寄存器
 * 调用switch_to函数，切换到下一个函数执行
-* 返回后打开CPU中断功能(???)
+* 返回后打开CPU中断功能
 
-`local_intr_save(intr_flag)`和`local_intr_restore(intr_flag)`用于暂时关闭中断功能，防止切换进程的过程被打断
+创建了idleproc和initproc两个内核线程
+
+`local_intr_save(intr_flag)`和`local_intr_restore(intr_flag)`用于暂时关闭中断功能，防止切换进程的过程被打断，是一种简易的实现互斥锁的方法

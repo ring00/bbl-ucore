@@ -94,6 +94,15 @@ qemu-system-i386 bootloader
 
 ## 练习二
 
+直接`make debug`或手动在terminal中输入如下
+
+```shell
+qemu-system-i386 -S -s -parallel stdio -hda ucore.img
+gdb -q -tui -x /tools/gdbinit
+```
+
+即可进行单步调试
+
 ## 练习三
 
 ### 保护模式的进入
@@ -156,11 +165,37 @@ BootLoader中读取硬盘的功能是基于`static void readsect(void *dst, uint
 * 等待磁盘准备好
 * 读入数据
 
-首先读入8个扇区，将ELF文件头读入；上一步从硬盘读入内存的起始地址为0x10000，因此该地址也是ELF文件头的地址；根据文件头提供的信息将kernel读入正确的内存地址
-
 ### 加载ELF格式OS
 
+* 首先读入8个扇区，将ELF文件头读入；
+* 上一步从硬盘读入内存的起始地址为0x10000，因此该地址也是ELF文件头的地址；
+* 根据文件头提供的信息将kernel读入正确的内存地址
+* 调用kernel的入口函数
+
 ## 练习五
+
+输出如下
+
+```shell
+epb:0x00007b38 eip:0x00100967 arg: 0x00010074 0x00010074 0x00007b68 0x0010007f
+    kern/debug/kdebug.c:306: print_stackframe+21
+epb:0x00007b48 eip:0x00100c41 arg: 0x00000000 0x00000000 0x00000000 0x00007bb8
+    kern/debug/kmonitor.c:125: mon_backtrace+10
+epb:0x00007b68 eip:0x0010007f arg: 0x00000000 0x00007b90 0xffff0000 0x00007b94
+    kern/init/init.c:48: grade_backtrace2+19
+epb:0x00007b88 eip:0x001000a1 arg: 0x00000000 0xffff0000 0x00007bb4 0x00000029
+    kern/init/init.c:53: grade_backtrace1+27
+epb:0x00007ba8 eip:0x001000be arg: 0x00000000 0x00100000 0xffff0000 0x00100043
+    kern/init/init.c:58: grade_backtrace0+19
+epb:0x00007bc8 eip:0x001000df arg: 0x00000000 0x00000000 0x0010fd20 0x00103300
+    kern/init/init.c:63: grade_backtrace+26
+epb:0x00007be8 eip:0x00100050 arg: 0x00000000 0x00000000 0x00000000 0x00007c4f
+    kern/init/init.c:28: kern_init+79
+epb:0x00007bf8 eip:0x00007d6e arg: 0xc031fcfa 0xc08ed88e 0x64e4d08e 0xfa7502a8
+    <unknow>: -- 0x00007d6d --
+```
+
+最后一行的0x7d6d = 0x7d6c + 1，而打开bootblock.asm可以看到0x7d6c为调用kernel入口的最后一句指令，所以0x7d6d实际上是调用call指令后压栈的返回地址
 
 ## 练习六
 
@@ -188,10 +223,9 @@ BootLoader中读取硬盘的功能是基于`static void readsect(void *dst, uint
 在`static void trap_dispatch(struct trapframe *tf)`中处理时钟中断部分添加如下代码
 
 ```c
-if (++ticks == TICK_NUM) {
+if (++ticks % TICK_NUM == 0) {
     print_ticks();
-    ticks = 0;
 }
 ```
 
-每次收到中断即将全局变量ticks加1，当到达100时调用`print_ticks`并将ticks归零。
+每次收到中断即将全局变量ticks加1，当为100整数倍时调用`print_ticks`。
