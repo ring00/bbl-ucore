@@ -37,3 +37,14 @@ ucore能保证进程pid的唯一，`get_pid`函数会依次增加last_pid的值�
 创建了idleproc和initproc两个内核线程
 
 `local_intr_save(intr_flag)`和`local_intr_restore(intr_flag)`用于暂时关闭中断功能，防止切换进程的过程被打断，是一种简易的实现互斥锁的方法
+
+## 总结
+
+### 实现与参考答案的区别
+
+`do_fork`中参考答案在取得进程pid部分加了互斥锁
+
+### 知识点
+
+* 内核线程管理
+* 调度并执行内核线程initproc

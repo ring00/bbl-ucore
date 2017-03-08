@@ -47,4 +47,14 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
 
 * 需要被换出页的特征为`accessed == 0 && dirty == 0`
 * 判断方法见上面代码
-* TODO
+* 可以利用始终中断定时进行换页操作
+
+## 总结
+
+### 实现与参考答案的区别
+
+实现逻辑基本一致
+
+### 知识点
+
+* 页替换算法：用将内存页内容临时保存到swap的方式，扩大可用的内存而不显著影响性能

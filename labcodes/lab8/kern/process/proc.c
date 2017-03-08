@@ -735,16 +735,16 @@ load_icode(int fd, int argc, char **kargv) {
         total_len += argv_len[i];
     }
 
-    uintptr_t stacktop = USTACKTOP - (total_len / 4 + 1) * 4;
+    char* stacktop = USTACKTOP - (total_len / 4 + 1) * 4;
     char** uargv = (char**)(stacktop - argc * sizeof(char*));
 
     for (int i = 0; i < argc; ++i) {
-        uargv[i] = strcpy((char*)stacktop, kargv[i]);
+        uargv[i] = strcpy(stacktop, kargv[i]);
         stacktop += argv_len[i];
     }
     kfree(argv_len);
 
-    stacktop = (uintptr_t)uargv - sizeof(int);
+    stacktop = (char*)uargv - sizeof(int);
     *(int *)stacktop = argc;
 
     //(6) setup trapframe for user environment
