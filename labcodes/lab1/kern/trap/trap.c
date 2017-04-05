@@ -216,13 +216,16 @@ void interrupt_handler(struct trapframe *tf) {
             cprintf("User software interrupt\n");
             break;
         case IRQ_S_TIMER:
-            cprintf("Supervisor timer interrupt\n");
-            cprintf("sie = %04x\n", read_csr(sie));
-            cprintf("sip = %04x\n", read_csr(sip));
-            sbi_mask_interrupt(IRQ_S_TIMER);
-            cprintf("sie = %04x\n", read_csr(sie));
-            cprintf("sip = %04x\n", read_csr(sip));
-            // clock_set_next_event();
+            // "All bits besides SSIP and USIP in the sip register are
+            // read-only." -- privileged spec1.9.1, 4.1.4, p59
+            // In fact, Call sbi_set_timer will clear STIP, or you can clear it
+            // directly.
+            // cprintf("Supervisor timer interrupt\n");
+            // clear_csr(sip, SIP_STIP);
+            clock_set_next_event();
+            if (++ticks % TICK_NUM == 0) {
+                print_ticks();
+            }
             break;
         case IRQ_H_TIMER:
             cprintf("Hypervisor software interrupt\n");
@@ -286,8 +289,8 @@ void exception_handler(struct trapframe *tf) {
  * trapframe and then uses the iret instruction to return from the exception.
  * */
 void trap(struct trapframe *tf) {
-    cprintf("in void trap(struct trapframe *tf);\n");
-    print_trapframe(tf);
+    // cprintf("void trap(struct trapframe *tf);\n");
+    // print_trapframe(tf);
 
     // the following line may be used in future to handle ecall from user mode
     // write_csr(mscratch, tf);
@@ -303,5 +306,5 @@ void trap(struct trapframe *tf) {
 }
 
 void debug(void) {
-    cprintf("in void debug(void)\n");
+    cprintf("void debug(void)\n");
 }

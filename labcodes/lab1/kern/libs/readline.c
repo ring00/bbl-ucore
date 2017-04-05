@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define BUFSIZE    1024
+#define BUFSIZE 1024
 static char buf[BUFSIZE];
 
 /* *
@@ -21,8 +21,7 @@ static char buf[BUFSIZE];
  * are happened, NULL is returned. The return value is a global variable,
  * thus it should be copied before it is used.
  * */
-char *
-readline(const char *prompt) {
+char *readline(const char *prompt) {
     if (prompt != NULL) {
         cprintf("%s", prompt);
     }
@@ -31,20 +30,16 @@ readline(const char *prompt) {
         c = getchar();
         if (c < 0) {
             return NULL;
-        }
-        else if (c >= ' ' && i < BUFSIZE - 1) {
+        } else if (c >= ' ' && i < BUFSIZE - 1) {
             cputchar(c);
-            buf[i ++] = c;
-        }
-        else if (c == '\b' && i > 0) {
+            buf[i++] = c;
+        } else if (c == '\b' && i > 0) {
             cputchar(c);
-            i --;
-        }
-        else if (c == '\n' || c == '\r') {
+            i--;
+        } else if (c == '\n' || c == '\r') {
             cputchar(c);
             buf[i] = '\0';
             return buf;
         }
     }
 }
-
