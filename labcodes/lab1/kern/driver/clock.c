@@ -67,7 +67,7 @@ clock_init(void) {
 
 
 
-	sbi_set_timer(get_cycles() + 0x200000UL);
+	sbi_set_timer(get_cycles() + 0x100000UL);
 
 	cprintf("sie = %04x\n", read_csr(sie));
 	cprintf("sip = %04x\n", read_csr(sip));
@@ -78,3 +78,6 @@ clock_init(void) {
     // pic_enable(IRQ_TIMER);
 }
 
+void clock_set_next_event(void) {
+	sbi_set_timer(get_cycles() + 0x100000UL);
+}

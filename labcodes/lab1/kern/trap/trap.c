@@ -104,7 +104,7 @@ trapname(int trapno) {
 /* trap_in_kernel - test if trap happened in kernel */
 bool
 trap_in_kernel(struct trapframe *tf) {
-    return (tf->tf_cs == (uint16_t)KERNEL_CS);
+    // return (tf->tf_cs == (uint16_t)KERNEL_CS);
 }
 
 static const char *IA32flags[] = {
@@ -116,41 +116,42 @@ static const char *IA32flags[] = {
 void
 print_trapframe(struct trapframe *tf) {
     cprintf("trapframe at %p\n", tf);
-    print_regs(&tf->tf_regs);
-    cprintf("  ds   0x----%04x\n", tf->tf_ds);
-    cprintf("  es   0x----%04x\n", tf->tf_es);
-    cprintf("  fs   0x----%04x\n", tf->tf_fs);
-    cprintf("  gs   0x----%04x\n", tf->tf_gs);
-    cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
-    cprintf("  err  0x%08x\n", tf->tf_err);
-    cprintf("  eip  0x%08x\n", tf->tf_eip);
-    cprintf("  cs   0x----%04x\n", tf->tf_cs);
-    cprintf("  flag 0x%08x ", tf->tf_eflags);
+    print_regs(tf->gpr);
+    cprintf("  status   0x%08x\n", tf->status);
+    cprintf("  epc      0x%08x\n", tf->epc);
+    cprintf("  badvaddr 0x%08x\n", tf->badvaddr);
+    cprintf("  cause    0x%08x\n", tf->cause);
 
-    int i, j;
-    for (i = 0, j = 1; i < sizeof(IA32flags) / sizeof(IA32flags[0]); i ++, j <<= 1) {
-        if ((tf->tf_eflags & j) && IA32flags[i] != NULL) {
-            cprintf("%s,", IA32flags[i]);
-        }
-    }
-    cprintf("IOPL=%d\n", (tf->tf_eflags & FL_IOPL_MASK) >> 12);
+    // cprintf("trapframe at %p\n", tf);
+    // print_regs(&tf->tf_regs);
+    // cprintf("  ds   0x----%04x\n", tf->tf_ds);
+    // cprintf("  es   0x----%04x\n", tf->tf_es);
+    // cprintf("  fs   0x----%04x\n", tf->tf_fs);
+    // cprintf("  gs   0x----%04x\n", tf->tf_gs);
+    // cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
+    // cprintf("  err  0x%08x\n", tf->tf_err);
+    // cprintf("  eip  0x%08x\n", tf->tf_eip);
+    // cprintf("  cs   0x----%04x\n", tf->tf_cs);
+    // cprintf("  flag 0x%08x ", tf->tf_eflags);
 
-    if (!trap_in_kernel(tf)) {
-        cprintf("  esp  0x%08x\n", tf->tf_esp);
-        cprintf("  ss   0x----%04x\n", tf->tf_ss);
-    }
+    // int i, j;
+    // for (i = 0, j = 1; i < sizeof(IA32flags) / sizeof(IA32flags[0]); i ++, j <<= 1) {
+    //     if ((tf->tf_eflags & j) && IA32flags[i] != NULL) {
+    //         cprintf("%s,", IA32flags[i]);
+    //     }
+    // }
+    // cprintf("IOPL=%d\n", (tf->tf_eflags & FL_IOPL_MASK) >> 12);
+
+    // if (!trap_in_kernel(tf)) {
+    //     cprintf("  esp  0x%08x\n", tf->tf_esp);
+    //     cprintf("  ss   0x----%04x\n", tf->tf_ss);
+    // }
 }
 
-void
-print_regs(struct pushregs *regs) {
-    cprintf("  edi  0x%08x\n", regs->reg_edi);
-    cprintf("  esi  0x%08x\n", regs->reg_esi);
-    cprintf("  ebp  0x%08x\n", regs->reg_ebp);
-    cprintf("  oesp 0x%08x\n", regs->reg_oesp);
-    cprintf("  ebx  0x%08x\n", regs->reg_ebx);
-    cprintf("  edx  0x%08x\n", regs->reg_edx);
-    cprintf("  ecx  0x%08x\n", regs->reg_ecx);
-    cprintf("  eax  0x%08x\n", regs->reg_eax);
+void print_regs(uintptr_t gpr[32]) {
+    for (int i = 1; i < 32; ++i) {
+        cprintf("  x%d  0x%08x\n", i, gpr[i]);
+    }
 }
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
@@ -158,41 +159,124 @@ static void
 trap_dispatch(struct trapframe *tf) {
     char c;
 
-    switch (tf->tf_trapno) {
-    case IRQ_OFFSET + IRQ_TIMER:
-        /* LAB1 YOUR CODE : STEP 3 */
-        /* handle the timer interrupt */
-        /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
-         * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
-         * (3) Too Simple? Yes, I think so!
-         */
-        if (++ticks % TICK_NUM == 0) {
-            print_ticks();
-        }
-        break;
-    case IRQ_OFFSET + IRQ_COM1:
-        c = cons_getc();
-        cprintf("serial [%03d] %c\n", c, c);
-        break;
-    case IRQ_OFFSET + IRQ_KBD:
-        c = cons_getc();
-        cprintf("kbd [%03d] %c\n", c, c);
-        break;
-    //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
-    case T_SWITCH_TOU:
-    case T_SWITCH_TOK:
-        panic("T_SWITCH_** ??\n");
-        break;
-    case IRQ_OFFSET + IRQ_IDE1:
-    case IRQ_OFFSET + IRQ_IDE2:
-        /* do nothing */
-        break;
-    default:
-        // in kernel, it must be a mistake
-        if ((tf->tf_cs & 3) == 0) {
+    // switch (tf->tf_trapno) {
+    // case IRQ_OFFSET + IRQ_TIMER:
+    //     /* LAB1 YOUR CODE : STEP 3 */
+    //     /* handle the timer interrupt */
+    //     /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
+    //      * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
+    //      * (3) Too Simple? Yes, I think so!
+    //      */
+    //     if (++ticks % TICK_NUM == 0) {
+    //         print_ticks();
+    //     }
+    //     break;
+    // case IRQ_OFFSET + IRQ_COM1:
+    //     c = cons_getc();
+    //     cprintf("serial [%03d] %c\n", c, c);
+    //     break;
+    // case IRQ_OFFSET + IRQ_KBD:
+    //     c = cons_getc();
+    //     cprintf("kbd [%03d] %c\n", c, c);
+    //     break;
+    // //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
+    // case T_SWITCH_TOU:
+    // case T_SWITCH_TOK:
+    //     panic("T_SWITCH_** ??\n");
+    //     break;
+    // case IRQ_OFFSET + IRQ_IDE1:
+    // case IRQ_OFFSET + IRQ_IDE2:
+    //     /* do nothing */
+    //     break;
+    // default:
+    //     // in kernel, it must be a mistake
+    //     if ((tf->tf_cs & 3) == 0) {
+    //         print_trapframe(tf);
+    //         panic("unexpected trap in kernel.\n");
+    //     }
+    // }
+}
+
+void interrupt_handler(struct trapframe *tf) {
+    intptr_t cause = (tf->cause << 1) >> 1;
+    switch (cause) {
+        case 0:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_SOFT:
+            cprintf("Supervisor software interrupt\n");
+            break;
+        case IRQ_H_SOFT:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_SOFT:
+            cprintf("Machine software interrupt\n");
+            break;
+        case 4:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_TIMER:
+            cprintf("Supervisor timer interrupt\n");
+            cprintf("sie = %04x\n", read_csr(sie));
+            cprintf("sip = %04x\n", read_csr(sip));
+            sbi_mask_interrupt(IRQ_S_TIMER);
+            cprintf("sie = %04x\n", read_csr(sie));
+            cprintf("sip = %04x\n", read_csr(sip));
+            // clock_set_next_event();
+            break;
+        case IRQ_H_TIMER:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_TIMER:
+            cprintf("Machine software interrupt\n");
+            break;
+        case 8:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_EXT:
+            cprintf("Supervisor external interrupt\n");
+            break;
+        case IRQ_H_EXT:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_EXT:
+            cprintf("Machine software interrupt\n");
+            break;
+        default:
             print_trapframe(tf);
-            panic("unexpected trap in kernel.\n");
-        }
+            break;
+    }
+}
+
+void exception_handler(struct trapframe *tf) {
+    switch (tf->cause) {
+        case CAUSE_MISALIGNED_FETCH:
+            break;
+        case CAUSE_FAULT_FETCH:
+            break;
+        case CAUSE_ILLEGAL_INSTRUCTION:
+            break;
+        case CAUSE_BREAKPOINT:
+            break;
+        case CAUSE_MISALIGNED_LOAD:
+            break;
+        case CAUSE_FAULT_LOAD:
+            break;
+        case CAUSE_MISALIGNED_STORE:
+            break;
+        case CAUSE_FAULT_STORE:
+            break;
+        case CAUSE_USER_ECALL:
+            break;
+        case CAUSE_SUPERVISOR_ECALL:
+            break;
+        case CAUSE_HYPERVISOR_ECALL:
+            break;
+        case CAUSE_MACHINE_ECALL:
+            break;
+        default:
+            print_trapframe(tf);
+                break;
     }
 }
 
@@ -201,12 +285,23 @@ trap_dispatch(struct trapframe *tf) {
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void
-trap(struct trapframe *tf) {
+void trap(struct trapframe *tf) {
+    cprintf("in void trap(struct trapframe *tf);\n");
+    print_trapframe(tf);
+
+    // the following line may be used in future to handle ecall from user mode
+    // write_csr(mscratch, tf);
+
     // dispatch based on what type of trap occurred
-    trap_dispatch(tf);
+    if ((intptr_t)tf->cause < 0) {
+        // interrupts
+        interrupt_handler(tf);
+    } else {
+        // exceptions
+        trap_dispatch(tf);
+    }
 }
 
-void fake_trap(void) {
-    cprintf("in void fake_trap(void)\n");
+void debug(void) {
+    cprintf("in void debug(void)\n");
 }

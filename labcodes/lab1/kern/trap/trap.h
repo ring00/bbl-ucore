@@ -47,46 +47,21 @@
 #define T_SWITCH_TOU                120    // user/kernel switch
 #define T_SWITCH_TOK                121    // user/kernel switch
 
-/* registers as pushed by pushal */
-struct pushregs {
-    uint32_t reg_edi;
-    uint32_t reg_esi;
-    uint32_t reg_ebp;
-    uint32_t reg_oesp;            /* Useless */
-    uint32_t reg_ebx;
-    uint32_t reg_edx;
-    uint32_t reg_ecx;
-    uint32_t reg_eax;
+struct trapframe {
+    uintptr_t gpr[32];
+    uintptr_t status;
+    uintptr_t epc;
+    uintptr_t badvaddr;
+    uintptr_t cause;
 };
 
-struct trapframe {
-    struct pushregs tf_regs;
-    uint16_t tf_gs;
-    uint16_t tf_padding0;
-    uint16_t tf_fs;
-    uint16_t tf_padding1;
-    uint16_t tf_es;
-    uint16_t tf_padding2;
-    uint16_t tf_ds;
-    uint16_t tf_padding3;
-    uint32_t tf_trapno;
-    /* below here defined by x86 hardware */
-    uint32_t tf_err;
-    uintptr_t tf_eip;
-    uint16_t tf_cs;
-    uint16_t tf_padding4;
-    uint32_t tf_eflags;
-    /* below here only when crossing rings, such as from user to kernel */
-    uintptr_t tf_esp;
-    uint16_t tf_ss;
-    uint16_t tf_padding5;
-} __attribute__((packed));
-
+void trap(struct trapframe *tf);
 void idt_init(void);
 void print_trapframe(struct trapframe *tf);
-void print_regs(struct pushregs *regs);
+void print_regs(uintptr_t gpr[32]);
 bool trap_in_kernel(struct trapframe *tf);
-void fake_trap(void);
+
+void debug(void);
 
 #endif /* !__KERN_TRAP_TRAP_H__ */
 

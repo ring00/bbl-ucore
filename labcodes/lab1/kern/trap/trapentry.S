@@ -4,7 +4,7 @@
 
     csrw sscratch, sp
 
-    addi sp, sp, -37 * REGBYTES
+    addi sp, sp, -36 * REGBYTES
     # save gprs
     STORE  x1,1*REGBYTES(sp)
     STORE  x3,3*REGBYTES(sp)
@@ -54,6 +54,7 @@
     .macro RESTORE_ALL
 
     csrr a0, sscratch
+    addi sp, sp, -36 * REGBYTES
 
     # restore x registers
     LOAD  x1,1*REGBYTES(a0)
@@ -91,16 +92,16 @@
     .endm
 
     .align 4
-    .global __alltraps
+    .globl __alltraps
 __alltraps:
     SAVE_ALL
 
     move  a0, sp
-    jal
+    jal trap
 
-    .align 4
     .globl __trapret
 __trapret:
     RESTORE_ALL
+    j debug
     # go back from supervisor call
     sret
