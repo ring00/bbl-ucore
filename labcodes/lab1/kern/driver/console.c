@@ -5,6 +5,7 @@
 #include <kbdreg.h>
 #include <picirq.h>
 #include <trap.h>
+#include <sbi.h>
 
 /* stupid I/O delay routine necessitated by historical PC design flaws */
 static void
@@ -423,20 +424,21 @@ kbd_init(void) {
 /* cons_init - initializes the console devices */
 void
 cons_init(void) {
-    cga_init();
-    serial_init();
-    kbd_init();
-    if (!serial_exists) {
-        cprintf("serial port does not exist!!\n");
-    }
+    // cga_init();
+    // serial_init();
+    // kbd_init();
+    // if (!serial_exists) {
+    //     cprintf("serial port does not exist!!\n");
+    // }
 }
 
 /* cons_putc - print a single character @c to console devices */
 void
 cons_putc(int c) {
-    lpt_putc(c);
-    cga_putc(c);
-    serial_putc(c);
+    // lpt_putc(c);
+    // cga_putc(c);
+    // serial_putc(c);
+    sbi_console_putchar((unsigned char)c);
 }
 
 /* *

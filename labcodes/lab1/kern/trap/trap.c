@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <console.h>
 #include <kdebug.h>
+#include <encoding.h>
 
 #define TICK_NUM 100
 
@@ -55,6 +56,15 @@ idt_init(void) {
     // SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
 
     // lidt(&idt_pd);
+
+    extern void __alltraps(void);
+    /* Set sup0 scratch register to 0, indicating to exception vector
+       that we are presently executing in the kernel */
+    write_csr(sscratch, 0);
+    /* Set the exception vector address */
+    write_csr(stvec, &__alltraps);
+    // cprintf("stvec : %04x\n", read_csr(stvec));
+    set_csr(sstatus, SSTATUS_SIE);
 }
 
 static const char *
@@ -197,3 +207,6 @@ trap(struct trapframe *tf) {
     trap_dispatch(tf);
 }
 
+void fake_trap(void) {
+    cprintf("in void fake_trap(void)\n");
+}

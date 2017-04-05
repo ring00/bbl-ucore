@@ -2,20 +2,27 @@
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(kern_init)
+ENTRY(_entry)
 
-SECTIONS {
+BASE_ADDRESS = 0xC0000000;
+HEAP_SIZE = 16384;
+STACK_SIZE = 16384;
+
+SECTIONS
+{
 	/* Load the kernel at this address: "." means the current address */
-	. = 0x100000;
+	. = BASE_ADDRESS;
 
 	.text : {
-		*(.text .stub .text.* .gnu.linkonce.t.*)
+		*(.text._entry)
+		*(.text)
+		*(.text.*)
 	}
-
-	PROVIDE(etext = .);	/* Define the 'etext' symbol to this value */
+	etext = .;
 
 	.rodata : {
-		*(.rodata .rodata.* .gnu.linkonce.r.*)
+		*(.rodata)
+		*(.rodata.*)
 	}
 
 	/* Include debugging information in kernel memory */
@@ -38,20 +45,38 @@ SECTIONS {
 	/* Adjust the address for the data segment to the next page */
 	. = ALIGN(0x1000);
 
-	/* The data segment */
 	.data : {
 		*(.data)
+		*(.data.*)
 	}
-
-	PROVIDE(edata = .);
+	edata = .;
 
 	.bss : {
+		*(.sbss)
+		*(.sbss.*)
 		*(.bss)
+		*(.bss.*)
+		*(COMMON)
 	}
+	ebss = .;
 
-	PROVIDE(end = .);
+	/* Stack and heap */
+	. = ALIGN(16);
+	heap = .;
+	. += HEAP_SIZE;
+	. = ALIGN(16);
+	eheap = .;
+
+	estack = .;
+	. += STACK_SIZE;
+	. = ALIGN(16);
+	stack = .;	
+
+	end = .;
 
 	/DISCARD/ : {
-		*(.eh_frame .note.GNU-stack)
+		*(.comment)
+		*(.note*)
 	}
 }
+

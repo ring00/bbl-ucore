@@ -2,6 +2,7 @@
 #include <trap.h>
 #include <stdio.h>
 #include <picirq.h>
+#include <sbi.h>
 
 /* *
  * Support for time-related hardware gadgets - the 8253 timer,
@@ -25,6 +26,27 @@
 
 volatile size_t ticks;
 
+static inline uint64_t get_cycles(void)
+{
+#if __riscv_xlen == 64
+	uint64_t n;
+	__asm__ __volatile__ (
+		"rdtime %0"
+		: "=r" (n));
+	return n;
+#else
+	uint32_t lo, hi, tmp;
+	__asm__ __volatile__ (
+		"1:\n"
+		"rdtimeh %0\n"
+		"rdtime %1\n"
+		"rdtimeh %2\n"
+		"bne %0, %2, 1b"
+		: "=&r" (hi), "=&r" (lo), "=&r" (tmp));
+	return ((uint64_t)hi << 32) | lo;
+#endif
+}
+
 /* *
  * clock_init - initialize 8253 clock to interrupt 100 times per second,
  * and then enable IRQ_TIMER.
@@ -32,14 +54,27 @@ volatile size_t ticks;
 void
 clock_init(void) {
     // set 8253 timer-chip
-    outb(TIMER_MODE, TIMER_SEL0 | TIMER_RATEGEN | TIMER_16BIT);
-    outb(IO_TIMER1, TIMER_DIV(100) % 256);
-    outb(IO_TIMER1, TIMER_DIV(100) / 256);
+    // outb(TIMER_MODE, TIMER_SEL0 | TIMER_RATEGEN | TIMER_16BIT);
+    // outb(IO_TIMER1, TIMER_DIV(100) % 256);
+    // outb(IO_TIMER1, TIMER_DIV(100) / 256);
+    cprintf("sstatus = %04x\n", read_csr(sstatus));
+	cprintf("sie = %04x\n", read_csr(sie));
+	cprintf("sip = %04x\n", read_csr(sip));
+	cprintf("get_cycles() = %08llu\n", get_cycles());
+	cprintf("get_cycles() = %08llu\n", get_cycles());
+	cprintf("get_cycles() = %08llu\n", get_cycles());
+	cprintf("get_cycles() = %08llu\n", get_cycles());
 
+
+
+	sbi_set_timer(get_cycles() + 0x200000UL);
+
+	cprintf("sie = %04x\n", read_csr(sie));
+	cprintf("sip = %04x\n", read_csr(sip));
     // initialize time counter 'ticks' to zero
     ticks = 0;
 
     cprintf("++ setup timer interrupts\n");
-    pic_enable(IRQ_TIMER);
+    // pic_enable(IRQ_TIMER);
 }
 

@@ -9,36 +9,43 @@
 #include <intr.h>
 #include <pmm.h>
 #include <kmonitor.h>
+#include <x86.h>
 int kern_init(void) __attribute__((noreturn));
 void grade_backtrace(void);
 static void lab1_switch_test(void);
 
 int
 kern_init(void) {
-    extern char edata[], end[];
-    memset(edata, 0, end - edata);
+    extern char edata[], ebss[];
+    memset(edata, 0, ebss - edata);
 
-    cons_init();                // init the console
+    // cons_init();                // init the console
 
-    const char *message = "(THU.CST) os is loading ...";
+    const char *message = "(THU.CST) os is loading ...\n";
     cprintf("%s\n\n", message);
 
     print_kerninfo();
 
-    grade_backtrace();
+    // grade_backtrace();
 
-    pmm_init();                 // init physical memory management
+    // pmm_init();                 // init physical memory management
 
-    pic_init();                 // init interrupt controller
+    // pic_init();                 // init interrupt controller
     idt_init();                 // init interrupt descriptor table
 
     clock_init();               // init clock interrupt
-    intr_enable();              // enable irq interrupt
+    // intr_enable();              // enable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
     //lab1_switch_test();
-
+    while (1) {
+        uint32_t sip = read_csr(sip);
+        if (sip) {
+            cprintf("sip = %04x\n", read_csr(sip));
+            break;
+        }
+    }
     /* do nothing */
     while (1);
 }
