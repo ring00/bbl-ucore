@@ -20,7 +20,6 @@ int kern_init(void) {
     // extern char edata[], ebss[];
     // memset(edata, 0, ebss - edata);
 
-    asm volatile("rdtime a0");
     // cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...\n";

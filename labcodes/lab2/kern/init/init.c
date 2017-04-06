@@ -16,25 +16,26 @@ static void lab1_switch_test(void);
 
 int
 kern_init(void) {
-    extern char edata[], end[];
-    memset(edata, 0, end - edata);
+    // extern char edata[], end[];
+    // memset(edata, 0, end - edata);
 
-    cons_init();                // init the console
+    // cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...";
     cprintf("%s\n\n", message);
 
     print_kerninfo();
 
-    grade_backtrace();
+    // grade_backtrace();
+    idt_init();                 // init interrupt descriptor table
 
     pmm_init();                 // init physical memory management
 
-    pic_init();                 // init interrupt controller
+    // pic_init();                 // init interrupt controller
     idt_init();                 // init interrupt descriptor table
 
     clock_init();               // init clock interrupt
-    intr_enable();              // enable irq interrupt
+    // intr_enable();              // enable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
@@ -68,12 +69,12 @@ static void
 lab1_print_cur_status(void) {
     static int round = 0;
     uint16_t reg1, reg2, reg3, reg4;
-    asm volatile (
-            "mov %%cs, %0;"
-            "mov %%ds, %1;"
-            "mov %%es, %2;"
-            "mov %%ss, %3;"
-            : "=m"(reg1), "=m"(reg2), "=m"(reg3), "=m"(reg4));
+    // asm volatile (
+    //         "mov %%cs, %0;"
+    //         "mov %%ds, %1;"
+    //         "mov %%es, %2;"
+    //         "mov %%ss, %3;"
+    //         : "=m"(reg1), "=m"(reg2), "=m"(reg3), "=m"(reg4));
     cprintf("%d: @ring %d\n", round, reg1 & 3);
     cprintf("%d:  cs = %x\n", round, reg1);
     cprintf("%d:  ds = %x\n", round, reg2);

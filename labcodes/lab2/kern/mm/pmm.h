@@ -50,26 +50,30 @@ void print_pgdir(void);
  * where the machine's maximum 256MB of physical memory is mapped and returns the
  * corresponding physical address.  It panics if you pass it a non-kernel virtual address.
  * */
-#define PADDR(kva) ({                                                   \
-            uintptr_t __m_kva = (uintptr_t)(kva);                       \
-            if (__m_kva < KERNBASE) {                                   \
-                panic("PADDR called with invalid kva %08lx", __m_kva);  \
-            }                                                           \
-            __m_kva - KERNBASE;                                         \
-        })
+#define PADDR(kva)                                                 \
+    ({                                                             \
+        uintptr_t __m_kva = (uintptr_t)(kva);                      \
+        if (__m_kva < KERNBASE) {                                  \
+            panic("PADDR called with invalid kva %08lx", __m_kva); \
+        }                                                          \
+        __m_kva;                                                   \
+    })
+// #define PADDR(kva) ((uintptr_t)kva)
 
 /* *
  * KADDR - takes a physical address and returns the corresponding kernel virtual
  * address. It panics if you pass an invalid physical address.
  * */
-#define KADDR(pa) ({                                                    \
-            uintptr_t __m_pa = (pa);                                    \
-            size_t __m_ppn = PPN(__m_pa);                               \
-            if (__m_ppn >= npage) {                                     \
-                panic("KADDR called with invalid pa %08lx", __m_pa);    \
-            }                                                           \
-            (void *) (__m_pa + KERNBASE);                               \
-        })
+#define KADDR(pa)                                                \
+    ({                                                           \
+        uintptr_t __m_pa = (pa);                                 \
+        size_t __m_ppn = PPN(__m_pa);                            \
+        if (__m_ppn >= npage) {                                  \
+            panic("KADDR called with invalid pa %08lx", __m_pa); \
+        }                                                        \
+        (void *)(__m_pa);                                        \
+    })
+// #define KADDR(pa) ((uintptr_t)pa)
 
 extern struct Page *pages;
 extern size_t npage;

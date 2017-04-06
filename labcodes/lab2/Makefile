@@ -1,4 +1,4 @@
-PROJ	:= 5
+PROJ	:= challenge
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
@@ -8,33 +8,16 @@ V       := @
 #USELLVM := 1
 # try to infer the correct GCCPREFX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if i386-ucore-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
-	then echo 'i386-ucore-elf-'; \
-	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
-	then echo ''; \
-	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find an i386-ucore-elf version of GCC/binutils." 1>&2; \
-	echo "*** Is the directory with i386-ucore-elf-gcc in your PATH?" 1>&2; \
-	echo "*** If your i386-ucore-elf toolchain is installed with a command" 1>&2; \
-	echo "*** prefix other than 'i386-ucore-elf-', set your GCCPREFIX" 1>&2; \
-	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
-	echo "*** To turn off this error, run 'gmake GCCPREFIX= ...'." 1>&2; \
-	echo "***" 1>&2; exit 1; fi)
+GCCPREFIX := riscv32-unknown-linux-gnu-
 endif
 
 # try to infer the correct QEMU
 ifndef QEMU
-QEMU := $(shell if which qemu-system-i386 > /dev/null; \
-	then echo 'qemu-system-i386'; exit; \
-	elif which i386-elf-qemu > /dev/null; \
-	then echo 'i386-elf-qemu'; exit; \
-	elif which qemu > /dev/null; \
-	then echo 'qemu'; exit; \
-	else \
-	echo "***" 1>&2; \
-	echo "*** Error: Couldn't find a working QEMU executable." 1>&2; \
-	echo "*** Is the directory containing the qemu binary in your PATH" 1>&2; \
-	echo "***" 1>&2; exit 1; fi)
+QEMU := qemu-system-riscv32
+endif
+
+ifndef SPIKE
+SPIKE := spike
 endif
 
 # eliminate default suffix rules
@@ -48,22 +31,22 @@ ifndef  USELLVM
 HOSTCC		:= gcc
 HOSTCFLAGS	:= -g -Wall -O2
 CC		:= $(GCCPREFIX)gcc
-CFLAGS	:= -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc $(DEFS)
+CFLAGS  := -mcmodel=medany -D__NO_INLINE__ -std=gnu99 -Wno-unused -fno-delete-null-pointer-checks
+CFLAGS	:= -fno-builtin -Wall -g -nostdinc $(CFLAGS)
 CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 else
 HOSTCC		:= clang
-HOSTCFLAGS	:= -g -Wall -O2
+HOSTCFLAGS	:= -g -Wall -O0
 CC		:= clang
-CFLAGS	:= -fno-builtin -Wall -g -m32 -mno-sse -nostdinc $(DEFS)
+CFLAGS  := -mcmodel=medany -D__NO_INLINE__ -std=gnu99
+CFLAGS	:= -fno-builtin -Wall -g -mno-sse -nostdinc $(CFLAGS)
 CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 endif
 
-GDB		:= $(GCCPREFIX)gdb
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
-LDFLAGS	:= -m $(shell $(LD) -V | grep elf_i386 2>/dev/null)
-LDFLAGS	+= -nostdlib
+LDFLAGS	+= -nostartfiles -nostdlib -static
 
 OBJCOPY := $(GCCPREFIX)objcopy
 OBJDUMP := $(GCCPREFIX)objdump
@@ -77,9 +60,6 @@ SED		:= sed
 SH		:= sh
 TR		:= tr
 TOUCH	:= touch -c
-
-TAR		:= tar
-ZIP		:= gzip
 
 OBJDIR	:= obj
 BINDIR	:= bin
@@ -127,8 +107,9 @@ KINCLUDE	+= kern/debug/ \
 			   kern/driver/ \
 			   kern/trap/ \
 			   kern/mm/ \
-			   kern/libs/ \
-			   kern/sync/
+			   kern/arch/ \
+			   kern/sync/ \
+			   boot/header/
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
@@ -136,7 +117,7 @@ KSRCDIR		+= kern/init \
 			   kern/driver \
 			   kern/trap \
 			   kern/mm \
-			   kern/sync
+			   boot/src
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 
@@ -157,62 +138,47 @@ $(kernel): $(KOBJS)
 
 $(call create_target,kernel)
 
-
-# create kernel_nopage target
-kernel_nopage = $(call totarget,kernel_nopage)
-
-$(kernel_nopage): tools/kernel_nopage.ld
-
-$(kernel_nopage): $(KOBJS)
-	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -T tools/kernel_nopage.ld -o $@ $(KOBJS)
-	@$(OBJDUMP) -S $@ > $(call asmfile,kernel_nopage)
-	@$(OBJDUMP) -t $@ | $(SED) '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(call symfile,kernel_nopage)
-
-$(call create_target,kernel)
-
 # -------------------------------------------------------------------
 
 # create bootblock
-bootfiles = $(call listf_cc,boot)
-$(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
+# bootfiles = $(call listf_cc,boot)
+# $(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
 
-bootblock = $(call totarget,bootblock)
+# bootblock = $(call totarget,bootblock)
 
-$(bootblock): $(call toobj,boot/bootasm.S) $(call toobj,$(bootfiles)) | $(call totarget,sign)
-	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -N -T tools/boot.ld $^ -o $(call toobj,bootblock)
-	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
-	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
-	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
+# $(bootblock): $(call toobj,$(bootfiles)) | $(call totarget,sign)
+# 	@echo + ld $@
+# 	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 $^ -o $(call toobj,bootblock)
+# 	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
+# 	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
+# 	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
 
-$(call create_target,bootblock)
+# $(call create_target,bootblock)
 
 # -------------------------------------------------------------------
 
 # create 'sign' tools
-$(call add_files_host,tools/sign.c,sign,sign)
-$(call create_target_host,sign,sign)
+# $(call add_files_host,tools/sign.c,sign,sign)
+# $(call create_target_host,sign,sign)
 
 # -------------------------------------------------------------------
 
 # create ucore.img
-UCOREIMG	:= $(call totarget,ucore.img)
+# UCOREIMG	:= $(call totarget,ucore.img)
 
-$(UCOREIMG): $(kernel) $(bootblock) $(kernel_nopage)
-	$(V)dd if=/dev/zero of=$@ count=10000
-	$(V)dd if=$(bootblock) of=$@ conv=notrunc
-	$(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
+# $(UCOREIMG): $(kernel) $(bootblock)
+	# $(V)dd if=/dev/zero of=$@ count=10000
+	# $(V)dd if=$(bootblock) of=$@ conv=notrunc
+	# $(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
 
-$(call create_target,ucore.img)
+# $(call create_target,ucore.img)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 $(call finish_all)
 
-IGNORE_ALLDEPS	= gdb \
-				  clean \
-				  distclean \
+IGNORE_ALLDEPS	= clean \
+				  dist-clean \
 				  grade \
 				  touch \
 				  print-.+ \
@@ -228,34 +194,35 @@ TARGETS: $(TARGETS)
 
 .DEFAULT_GOAL := TARGETS
 
-QEMUOPTS = -hda $(UCOREIMG)
-
-.PHONY: qemu qemu-nox debug debug-nox
+.PHONY: qemu qemu-nox debug debug-nox spike
+spike: $(kernel)
+	$(V)$(SPIKE) $< -m 512
+qemu: $(kernel)
+	$(V)$(QEMU) -nographic -kernel $< -m 512
 qemu-mon: $(UCOREIMG)
-	$(V)$(QEMU)  -no-reboot -monitor stdio $(QEMUOPTS) -serial null
-qemu: $(UCOREIMG)
-	$(V)$(QEMU)  -no-reboot -parallel stdio $(QEMUOPTS) -serial null
-
-qemu-nox: targets
-	$(V)$(QEMU)  -no-reboot -serial mon:stdio $(QEMUOPTS) -nographic
-
-TERMINAL := gnome-terminal
-
+	$(V)$(QEMU)  -no-reboot -monitor stdio -hda $< -serial null
+# qemu: $(UCOREIMG)
+# 	$(V)$(QEMU) -no-reboot -parallel stdio -hda $< -serial null
+log: $(UCOREIMG)
+	$(V)$(QEMU) -no-reboot -d int,cpu_reset  -D q.log -parallel stdio -hda $< -serial null
+qemu-nox: $(UCOREIMG)
+	$(V)$(QEMU)   -no-reboot -serial mon:stdio -hda $< -nographic
+TERMINAL        :=gnome-terminal
 debug: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -parallel stdio $(QEMUOPTS) -serial null &
+	$(V)$(QEMU) -S -s -parallel stdio -hda $< -serial null &
 	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
-
+	$(V)$(TERMINAL) -e "gdb -q -tui -x tools/gdbinit"
+	
 debug-nox: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -serial mon:stdio $(QEMUOPTS) -nographic &
+	$(V)$(QEMU) -S -s -serial mon:stdio -hda $< -nographic &
 	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
+	$(V)$(TERMINAL) -e "gdb -q -x tools/gdbinit"
 
 .PHONY: grade touch
 
 GRADE_GDB_IN	:= .gdb.in
 GRADE_QEMU_OUT	:= .qemu.out
-HANDIN			:= lab2-handin.tar.gz
+HANDIN			:= proj$(PROJ)-handin.tar.gz
 
 TOUCH_FILES		:= kern/trap/trap.c
 
@@ -271,19 +238,21 @@ touch:
 print-%:
 	@echo $($(shell echo $(patsubst print-%,%,$@) | $(TR) [a-z] [A-Z]))
 
-.PHONY: clean distclean handin tags
+.PHONY: clean dist-clean handin packall tags
 clean:
 	$(V)$(RM) $(GRADE_GDB_IN) $(GRADE_QEMU_OUT) cscope* tags
-	$(V)$(RM) -r $(OBJDIR) $(BINDIR)
+	-$(RM) -r $(OBJDIR) $(BINDIR)
 
-distclean: clean
-	$(V)$(RM) $(HANDIN)
+dist-clean: clean
+	-$(RM) $(HANDIN)
 
-handin: distclean
-	$(V)$(TAR) -cf - `find . -type f -o -type d | grep -v '^\.$$' | grep -v '/CVS/' \
-					| grep -v '/\.git/' | grep -v '/\.svn/' | grep -v "$(HANDIN)"` \
-					| $(ZIP) > $(HANDIN)
-					
+handin: packall
+	@echo Please visit http://learn.tsinghua.edu.cn and upload $(HANDIN). Thanks!
+
+packall: clean
+	@$(RM) -f $(HANDIN)
+	@tar -czf $(HANDIN) `find . -type f -o -type d | grep -v '^\.*$$' | grep -vF '$(HANDIN)'`
+
 tags:
 	@echo TAGS ALL
 	$(V)rm -f cscope.files cscope.in.out cscope.out cscope.po.out tags

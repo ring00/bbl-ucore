@@ -8,6 +8,7 @@
 #include <default_pmm.h>
 #include <sync.h>
 #include <error.h>
+#include <sbi.h>
 
 /* *
  * Task State Segment:
@@ -96,14 +97,14 @@ static void check_boot_pgdir(void);
  * */
 static inline void
 lgdt(struct pseudodesc *pd) {
-    asm volatile ("lgdt (%0)" :: "r" (pd));
-    asm volatile ("movw %%ax, %%gs" :: "a" (USER_DS));
-    asm volatile ("movw %%ax, %%fs" :: "a" (USER_DS));
-    asm volatile ("movw %%ax, %%es" :: "a" (KERNEL_DS));
-    asm volatile ("movw %%ax, %%ds" :: "a" (KERNEL_DS));
-    asm volatile ("movw %%ax, %%ss" :: "a" (KERNEL_DS));
-    // reload cs
-    asm volatile ("ljmp %0, $1f\n 1:\n" :: "i" (KERNEL_CS));
+    // asm volatile ("lgdt (%0)" :: "r" (pd));
+    // asm volatile ("movw %%ax, %%gs" :: "a" (USER_DS));
+    // asm volatile ("movw %%ax, %%fs" :: "a" (USER_DS));
+    // asm volatile ("movw %%ax, %%es" :: "a" (KERNEL_DS));
+    // asm volatile ("movw %%ax, %%ds" :: "a" (KERNEL_DS));
+    // asm volatile ("movw %%ax, %%ss" :: "a" (KERNEL_DS));
+    // // reload cs
+    // asm volatile ("ljmp %0, $1f\n 1:\n" :: "i" (KERNEL_CS));
 }
 
 /* *
@@ -188,23 +189,36 @@ nr_free_pages(void) {
 /* pmm_init - initialize the physical memory management */
 static void
 page_init(void) {
-    struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
-    uint64_t maxpa = 0;
-
-    cprintf("e820map:\n");
-    int i;
-    for (i = 0; i < memmap->nr_map; i ++) {
-        uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
-        cprintf("  memory: %08llx, [%08llx, %08llx], type = %d.\n",
-                memmap->map[i].size, begin, end - 1, memmap->map[i].type);
-        if (memmap->map[i].type == E820_ARM) {
-            if (maxpa < end && begin < KMEMSIZE) {
-                maxpa = end;
-            }
-        }
+    memory_block_info block;
+    uint32_t hart_id = sbi_hart_id();
+    if (sbi_query_memory(hart_id, &block) != 0) {
+        panic("failed to get physcial memory size info!\n");
     }
-    if (maxpa > KMEMSIZE) {
-        maxpa = KMEMSIZE;
+
+    uint64_t mem_begin = block.base;
+    // Spike returns fake memory size, so manully set to 512MB
+    uint64_t mem_size = 0x20000000;
+    uint64_t mem_end = mem_begin + mem_size;
+
+    cprintf("physcial memory map:\n");
+    cprintf("  memory: %08llx, [%08llx, %08llx].\n", mem_size, mem_begin, mem_end - 1);
+    // struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
+    uint64_t maxpa = mem_end;
+
+    // cprintf("e820map:\n");
+    // int i;
+    // for (i = 0; i < memmap->nr_map; i ++) {
+    //     uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
+    //     cprintf("  memory: %08llx, [%08llx, %08llx], type = %d.\n",
+    //             memmap->map[i].size, begin, end - 1, memmap->map[i].type);
+    //     if (memmap->map[i].type == E820_ARM) {
+    //         if (maxpa < end && begin < KMEMSIZE) {
+    //             maxpa = end;
+    //         }
+    //     }
+    // }
+    if (maxpa > KERNTOP) {
+        maxpa = KERNTOP;
     }
 
     extern char end[];
@@ -212,41 +226,53 @@ page_init(void) {
     npage = maxpa / PGSIZE;
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
-    for (i = 0; i < npage; i ++) {
+    for (size_t i = 0; i < npage; i ++) {
         SetPageReserved(pages + i);
     }
 
     uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
 
-    for (i = 0; i < memmap->nr_map; i ++) {
-        uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
-        if (memmap->map[i].type == E820_ARM) {
-            if (begin < freemem) {
-                begin = freemem;
-            }
-            if (end > KMEMSIZE) {
-                end = KMEMSIZE;
-            }
-            if (begin < end) {
-                begin = ROUNDUP(begin, PGSIZE);
-                end = ROUNDDOWN(end, PGSIZE);
-                if (begin < end) {
-                    init_memmap(pa2page(begin), (end - begin) / PGSIZE);
-                }
-            }
-        }
+    mem_begin = ROUNDUP(freemem, PGSIZE);
+    mem_end = ROUNDDOWN(mem_end, PGSIZE);
+    // cprintf("  memory: %08llx, [%08llx, %08llx].\n", mem_end - mem_begin, mem_begin, mem_end - 1);
+    if (freemem < mem_end) {
+        init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
     }
+    // for (i = 0; i < memmap->nr_map; i ++) {
+    //     uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
+    //     if (memmap->map[i].type == E820_ARM) {
+    //         if (begin < freemem) {
+    //             begin = freemem;
+    //         }
+    //         if (end > KMEMSIZE) {
+    //             end = KMEMSIZE;
+    //         }
+    //         if (begin < end) {
+    //             begin = ROUNDUP(begin, PGSIZE);
+    //             end = ROUNDDOWN(end, PGSIZE);
+    //             if (begin < end) {
+    //                 init_memmap(pa2page(begin), (end - begin) / PGSIZE);
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 static void
 enable_paging(void) {
-    lcr3(boot_cr3);
+    // lcr3(boot_cr3);
 
-    // turn on paging
-    uint32_t cr0 = rcr0();
-    cr0 |= CR0_PE | CR0_PG | CR0_AM | CR0_WP | CR0_NE | CR0_TS | CR0_EM | CR0_MP;
-    cr0 &= ~(CR0_TS | CR0_EM);
-    lcr0(cr0);
+    // // turn on paging
+    // uint32_t cr0 = rcr0();
+    // cr0 |= CR0_PE | CR0_PG | CR0_AM | CR0_WP | CR0_NE | CR0_TS | CR0_EM | CR0_MP;
+    // cr0 &= ~(CR0_TS | CR0_EM);
+    // lcr0(cr0);
+    // Trap to machine mode to enable paging
+    write_csr(sptbr, (uintptr_t)boot_cr3 >> PGSHIFT);
+    cprintf("boot_cr3 : 0x%08x, sptbr 0x%08x.\n", boot_cr3, read_csr(sptbr));
+    cprintf("Alive on entering enable_paging\n");
+    sbi_send_ipi(1);
+    cprintf("Alive on exiting enable_paging\n");
 }
 
 //boot_map_segment - setup&enable the paging mechanism
@@ -314,13 +340,15 @@ pmm_init(void) {
     // map all physical memory to linear memory with base linear addr KERNBASE
     //linear_addr KERNBASE~KERNBASE+KMEMSIZE = phy_addr 0~KMEMSIZE
     //But shouldn't use this map until enable_paging() & gdt_init() finished.
-    boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
+    // boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
+    boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, KERNBASE, PTE_W);
 
     //temporary map: 
     //virtual_addr 3G~3G+4M = linear_addr 0~4M = linear_addr 3G~3G+4M = phy_addr 0~4M     
-    boot_pgdir[0] = boot_pgdir[PDX(KERNBASE)];
+    // boot_pgdir[0] = boot_pgdir[PDX(KERNBASE)];
 
     enable_paging();
+    cprintf("Alive\n");
 
     //reload gdt(third time,the last time) to map all physical memory
     //virtual_addr 0~4G=liear_addr 0~4G
@@ -328,14 +356,13 @@ pmm_init(void) {
     gdt_init();
 
     //disable the map of virtual_addr 0~4M
-    boot_pgdir[0] = 0;
+    // boot_pgdir[0] = 0;
 
     //now the basic virtual memory map(see memalyout.h) is established.
     //check the correctness of the basic virtual memory map.
     check_boot_pgdir();
 
     print_pgdir();
-
 }
 
 //get_pte - get pte and return the kernel virtual address of this pte for la
@@ -370,6 +397,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
      */
     pde_t *pdep = pgdir + PDX(la);  // (1) find page directory entry
     pte_t *ptep = NULL;
+    // cprintf("in get_pte, *pde: 0x%08x, la: 0x%08x, create: %d\n", *pdep, la, create);
     if (*pdep & PTE_P) {  // (2) check if entry is not present
         ptep = KADDR((pte_t*)(*pdep & 0xFFFFF000) + PTX(la));
     } else if (create) {
@@ -384,6 +412,11 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 
         ptep = (pte_t*)page2kva(page) + PTX(la);
     }
+    // if (ptep) {
+    //     cprintf("return *ptep: 0x%08x\n", *ptep);
+    // } else {
+    //     cprintf("ptep == NULL\n");
+    // }
     return ptep;  // (8) return page table entry
 }
 
@@ -475,9 +508,9 @@ page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm) {
 // edited are the ones currently in use by the processor.
 void
 tlb_invalidate(pde_t *pgdir, uintptr_t la) {
-    if (rcr3() == PADDR(pgdir)) {
-        invlpg((void *)la);
-    }
+    // if (rcr3() == PADDR(pgdir)) {
+    //     invlpg((void *)la);
+    // }
 }
 
 static void
@@ -488,7 +521,10 @@ check_alloc_page(void) {
 
 static void
 check_pgdir(void) {
-    assert(npage <= KMEMSIZE / PGSIZE);
+    // assert(npage <= KMEMSIZE / PGSIZE);
+    // The memory starts at 2GB in RISC-V
+    // so npage is always bigger than KMEMSIZE / PGSIZE
+    assert(npage <= KERNTOP / PGSIZE);
     assert(boot_pgdir != NULL && (uint32_t)PGOFF(boot_pgdir) == 0);
     assert(get_page(boot_pgdir, 0x0, NULL) == NULL);
 
