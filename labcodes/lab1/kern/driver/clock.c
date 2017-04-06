@@ -54,6 +54,9 @@ void clock_init(void) {
     timebase = sbi_timebase() / 500;
     // divided by 100 when using QEMU(10MHz)
     // timebase = sbi_timebase() / 100;
+    cprintf("Still Alive\n");
+    // cprintf("mstatus = %08x\n", read_csr(mstatus));
+    cprintf("Still Alive\n");
     clock_set_next_event();
 
     // initialize time counter 'ticks' to zero

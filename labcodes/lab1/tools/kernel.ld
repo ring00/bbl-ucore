@@ -2,81 +2,134 @@
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(_entry)
-
-BASE_ADDRESS = 0xC0000000;
-HEAP_SIZE = 0x1000;
-STACK_SIZE = 0x1000;
+ENTRY(reset_vector)
 
 SECTIONS
 {
-	/* Load the kernel at this address: "." means the current address */
-	. = BASE_ADDRESS;
+  	/*--------------------------------------------------------------------*/
+  	/* Code and read-only segment                                         */
+  	/*--------------------------------------------------------------------*/
 
-	.text : {
-		*(.text._entry)
-		*(.text)
-		*(.text.*)
-	}
-	etext = .;
+  	/* Begining of code and text segment */
+  	. = 0x80000000;
+  	_ftext = .;
 
-	.rodata : {
-		*(.rodata)
-		*(.rodata.*)
-	}
+  	.text :
+  	{
+    	*(.text.init)
+  	}
 
-	/* Include debugging information in kernel memory */
+  	/* text: Program code section */
+  	.text : 
+  	{
+    	*(.text)
+    	*(.text.*)
+    	*(.gnu.linkonce.t.*)
+  	}
+
+  	/* rodata: Read-only data */
+  	.rodata : 
+  	{
+    	*(.rdata)
+    	*(.rodata)
+    	*(.rodata.*)
+    	*(.gnu.linkonce.r.*)
+  	}
+
+  	/* End of code and read-only segment */
+  	PROVIDE(etext = .);
+  	_etext = .;
+
+  	/*--------------------------------------------------------------------*/
+  	/* HTIF, isolated onto separate page                                  */
+  	/*--------------------------------------------------------------------*/
+  	. = ALIGN(0x1000);
+  	htif :
+  	{
+    	*(htif)
+  	}
+  	. = ALIGN(0x1000);
+
+  	/*--------------------------------------------------------------------*/
+  	/* Include debugging information in kernel memory                     */
+  	/*--------------------------------------------------------------------*/
 	.stab : {
 		PROVIDE(__STAB_BEGIN__ = .);
 		*(.stab);
 		PROVIDE(__STAB_END__ = .);
-		BYTE(0)		/* Force the linker to allocate space
-				   for this section */
+		BYTE(0) /* Force the linker to allocate space for this section */
 	}
 
 	.stabstr : {
 		PROVIDE(__STABSTR_BEGIN__ = .);
 		*(.stabstr);
 		PROVIDE(__STABSTR_END__ = .);
-		BYTE(0)		/* Force the linker to allocate space
-				   for this section */
+		BYTE(0) /* Force the linker to allocate space for this section */
 	}
 
-	/* Adjust the address for the data segment to the next page */
-	. = ALIGN(0x1000);
+  	/*--------------------------------------------------------------------*/
+  	/* Initialized data segment                                           */
+  	/*--------------------------------------------------------------------*/
 
-	.data : {
-		*(.data)
-		*(.data.*)
-	}
-	edata = .;
+  	/* Start of initialized data segment */
+  	. = ALIGN(0x1000);
+   	_fdata = .;
 
-	.bss : {
-		*(.sbss)
-		*(.sbss.*)
-		*(.bss)
-		*(.bss.*)
-		*(COMMON)
-	}
-	ebss = .;
+  	/* data: Writable data */
+  	.data : 
+  	{
+    	*(.data)
+    	*(.data.*)
+    	*(.srodata*)
+    	*(.gnu.linkonce.d.*)
+    	*(.comment)
+  	}
 
-	/* Stack and heap */
+  	/* End of initialized data segment */
+  	. = ALIGN(4);
+  	PROVIDE(edata = .);
+  	_edata = .;
+
+  	/*--------------------------------------------------------------------*/
+  	/* Uninitialized data segment                                         */
+  	/*--------------------------------------------------------------------*/
+
+  	/* Start of uninitialized data segment */
+  	. = .;
+  	_fbss = .;
+
+  	/* sbss: Uninitialized writeable small data section */
+  	. = .;
+
+  	/* bss: Uninitialized writeable data section */
+  	. = .;
+  	_bss_start = .;
+  	.bss : 
+  	{
+    	*(.bss)
+    	*(.bss.*)
+    	*(.sbss*)
+    	*(.gnu.linkonce.b.*)
+    	*(COMMON)
+  	}
+  	PROVIDE(ebss = .);
+
+  	.sbi :
+  	{
+    	*(.sbi)
+ 	}
+
+/* 	_estack = .;
+	. += 0x1000;
 	. = ALIGN(16);
-	heap = .;
-	. += HEAP_SIZE;
+	_stack = .;*/
+
+ 	estack = .;
+	. += 0x1000;
 	. = ALIGN(16);
-	eheap = .;
+	stack = .;
 
-	estack = .;
-	. += STACK_SIZE;
-	. = ALIGN(16);
-	stack = .;	
-
-	end = .;
-
-	/DISCARD/ : {
-		*(.comment)
-		*(.note*)
-	}
+	PROVIDE(end = .);
+  	_end = .;
 }
 

@@ -16,6 +16,10 @@ ifndef QEMU
 QEMU := qemu-system-riscv32
 endif
 
+ifndef SPIKE
+SPIKE := spike
+endif
+
 # eliminate default suffix rules
 .SUFFIXES: .c .S .h
 
@@ -103,14 +107,16 @@ KINCLUDE	+= kern/debug/ \
 			   kern/driver/ \
 			   kern/trap/ \
 			   kern/mm/ \
-			   kern/arch/
+			   kern/arch/ \
+			   boot/header/
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
 			   kern/debug \
 			   kern/driver \
 			   kern/trap \
-			   kern/mm
+			   kern/mm \
+			   boot/src
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 
@@ -187,7 +193,9 @@ TARGETS: $(TARGETS)
 
 .DEFAULT_GOAL := TARGETS
 
-.PHONY: qemu qemu-nox debug debug-nox
+.PHONY: qemu qemu-nox debug debug-nox spike
+spike: $(kernel)
+	$(V)$(SPIKE) $<
 qemu-mon: $(UCOREIMG)
 	$(V)$(QEMU)  -no-reboot -monitor stdio -hda $< -serial null
 qemu: $(UCOREIMG)

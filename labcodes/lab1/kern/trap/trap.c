@@ -63,7 +63,6 @@ idt_init(void) {
     write_csr(sscratch, 0);
     /* Set the exception vector address */
     write_csr(stvec, &__alltraps);
-    // cprintf("stvec : %04x\n", read_csr(stvec));
     set_csr(sstatus, SSTATUS_SIE);
 }
 

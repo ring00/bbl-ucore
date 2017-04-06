@@ -16,6 +16,7 @@ void grade_backtrace(void);
 static void lab1_switch_test(void);
 
 int kern_init(void) {
+    cprintf("hart id = %d\n", sbi_hart_id());
     extern char edata[], ebss[];
     memset(edata, 0, ebss - edata);
 
@@ -33,7 +34,9 @@ int kern_init(void) {
     // pic_init();                 // init interrupt controller
     idt_init();  // init interrupt descriptor table
 
-    clock_init();  // init clock interrupt
+    // rdtime in mbare mode crashes
+    // clock_init();  // init clock interrupt
+
     // intr_enable();              // enable irq interrupt
 
     // LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
