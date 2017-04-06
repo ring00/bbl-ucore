@@ -29,7 +29,7 @@ endif
 # define compiler and flags
 ifndef  USELLVM
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -Wall -O0
+HOSTCFLAGS	:= -g -Wall -O2
 CC		:= $(GCCPREFIX)gcc
 CFLAGS  := -mcmodel=medany -D__NO_INLINE__ -std=gnu99
 CFLAGS	:= -fno-builtin -Wall -g -nostdinc $(CFLAGS)

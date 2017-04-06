@@ -8,15 +8,15 @@
 #include <defs.h>
 
 typedef struct {
-  uintptr_t entry;
-  uintptr_t first_user_vaddr;
-  uintptr_t first_vaddr_after_user;
-  uintptr_t load_offset;
+    uintptr_t entry;
+    uintptr_t first_user_vaddr;
+    uintptr_t first_vaddr_after_user;
+    uintptr_t load_offset;
 } kernel_elf_info;
 
 void load_kernel_elf(void* blob, size_t size, kernel_elf_info* info);
 void print_logo();
 
-#endif // !__ASSEMBLER__
+#endif  // !__ASSEMBLER__
 
 #endif

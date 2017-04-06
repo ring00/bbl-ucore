@@ -125,7 +125,7 @@ SECTIONS
 	_stack = .;*/
 
  	estack = .;
-	. += 0x1000;
+    . += 0x1000;
 	. = ALIGN(16);
 	stack = .;
 

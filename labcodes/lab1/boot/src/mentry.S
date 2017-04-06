@@ -1,5 +1,3 @@
-// See LICENSE for license details.
-
 #include "mtrap.h"
 #include "bits.h"
 
@@ -8,11 +6,11 @@
 trap_table:
   .word bad_trap
   .word bad_trap
+  .word illegal_insn_trap
   .word bad_trap
+  .word misaligned_load_trap
   .word bad_trap
-  .word bad_trap
-  .word bad_trap
-  .word bad_trap
+  .word misaligned_store_trap
   .word bad_trap
   .word bad_trap
   .word mcall_trap

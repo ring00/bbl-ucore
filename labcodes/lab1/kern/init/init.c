@@ -10,16 +10,17 @@
 #include <string.h>
 #include <trap.h>
 #include <x86.h>
+#include <mtrap.h>
 
 int kern_init(void) __attribute__((noreturn));
 void grade_backtrace(void);
 static void lab1_switch_test(void);
 
 int kern_init(void) {
-    cprintf("hart id = %d\n", sbi_hart_id());
-    extern char edata[], ebss[];
-    memset(edata, 0, ebss - edata);
+    // extern char edata[], ebss[];
+    // memset(edata, 0, ebss - edata);
 
+    asm volatile("rdtime a0");
     // cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...\n";
@@ -35,7 +36,7 @@ int kern_init(void) {
     idt_init();  // init interrupt descriptor table
 
     // rdtime in mbare mode crashes
-    // clock_init();  // init clock interrupt
+    clock_init();  // init clock interrupt
 
     // intr_enable();              // enable irq interrupt
 
