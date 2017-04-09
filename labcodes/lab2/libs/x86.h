@@ -2,7 +2,7 @@
 #define __LIBS_X86_H__
 
 #include <defs.h>
-#include <../boot/header/encoding.h>
+#include <../riscv/encoding.h>
 
 #define do_div(n, base)                              \
     ({                                               \

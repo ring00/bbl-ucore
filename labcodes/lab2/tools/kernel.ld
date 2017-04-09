@@ -2,135 +2,72 @@
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(reset_vector)
+ENTRY(_entry)
+
+BASE_ADDRESS = 0xC0000000;
+STACK_SIZE = 0x2000;
 
 SECTIONS
 {
-    /*--------------------------------------------------------------------*/
-    /* Code and read-only segment                                         */
-    /*--------------------------------------------------------------------*/
+    /* Load the kernel at this address: "." means the current address */
+    . = BASE_ADDRESS;
 
-    /* Begining of code and text segment */
-    . = 0x80000000;
-    _ftext = .;
-
-    .text :
-    {
-        *(.text.init)
-    }
-
-    /* text: Program code section */
-    .text : 
-    {
+    .text : {
+        *(.text._entry)
         *(.text)
         *(.text.*)
-        *(.gnu.linkonce.t.*)
     }
+    etext = .;
 
-    /* rodata: Read-only data */
-    .rodata : 
-    {
-        *(.rdata)
+    .rodata : {
         *(.rodata)
         *(.rodata.*)
-        *(.gnu.linkonce.r.*)
     }
 
-    /* End of code and read-only segment */
-    PROVIDE(etext = .);
-    _etext = .;
-
-    /*--------------------------------------------------------------------*/
-    /* HTIF, isolated onto separate page                                  */
-    /*--------------------------------------------------------------------*/
-    . = ALIGN(0x1000);
-    htif :
-    {
-        *(htif)
-    }
-    . = ALIGN(0x1000);
-
-    /*--------------------------------------------------------------------*/
-    /* Include debugging information in kernel memory                     */
-    /*--------------------------------------------------------------------*/
+    /* Include debugging information in kernel memory */
     .stab : {
         PROVIDE(__STAB_BEGIN__ = .);
         *(.stab);
         PROVIDE(__STAB_END__ = .);
-        BYTE(0) /* Force the linker to allocate space for this section */
+        BYTE(0)     /* Force the linker to allocate space
+                   for this section */
     }
 
     .stabstr : {
         PROVIDE(__STABSTR_BEGIN__ = .);
         *(.stabstr);
         PROVIDE(__STABSTR_END__ = .);
-        BYTE(0) /* Force the linker to allocate space for this section */
+        BYTE(0)     /* Force the linker to allocate space
+                   for this section */
     }
 
-    /*--------------------------------------------------------------------*/
-    /* Initialized data segment                                           */
-    /*--------------------------------------------------------------------*/
-
-    /* Start of initialized data segment */
+    /* Adjust the address for the data segment to the next page */
     . = ALIGN(0x1000);
-    _fdata = .;
 
-    /* data: Writable data */
-    .data : 
-    {
+    .data : {
         *(.data)
         *(.data.*)
-        *(.srodata*)
-        *(.gnu.linkonce.d.*)
-        *(.comment)
     }
+    edata = .;
 
-    /* End of initialized data segment */
-    . = ALIGN(4);
-    PROVIDE(edata = .);
-    _edata = .;
-
-    /*--------------------------------------------------------------------*/
-    /* Uninitialized data segment                                         */
-    /*--------------------------------------------------------------------*/
-
-    /* Start of uninitialized data segment */
-    . = .;
-    _fbss = .;
-
-    /* sbss: Uninitialized writeable small data section */
-    . = .;
-
-    /* bss: Uninitialized writeable data section */
-    . = .;
-    _bss_start = .;
-    .bss : 
-    {
+    .bss : {
+        *(.sbss)
+        *(.sbss.*)
         *(.bss)
         *(.bss.*)
-        *(.sbss*)
-        *(.gnu.linkonce.b.*)
         *(COMMON)
     }
-    PROVIDE(ebss = .);
+    ebss = .;
 
-    .sbi :
-    {
-        *(.sbi)
-    }
-
-    . = ALIGN(0x1000);
-    _machine_estack = .;
-    . += 0x1000;
-    _machine_stack = .;
-    . = ALIGN(0x1000);
-
-    . = ALIGN(0x1000);
+    /* Stack */
     bootstack = .;
-    . += 0x2000;
-    bootstacktop = .;
-    . = ALIGN(0x1000);
+    . += STACK_SIZE;
+    bootstacktop = .; 
 
-    PROVIDE(end = .);
-    _end = .;
+    end = .;
+
+    /DISCARD/ : {
+        *(.comment)
+        *(.note*)
+    }
 }

@@ -109,15 +109,14 @@ KINCLUDE	+= kern/debug/ \
 			   kern/mm/ \
 			   kern/arch/ \
 			   kern/sync/ \
-			   boot/header/
+			   riscv/
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
 			   kern/debug \
 			   kern/driver \
 			   kern/trap \
-			   kern/mm \
-			   boot/src
+			   kern/mm
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 

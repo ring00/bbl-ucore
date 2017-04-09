@@ -204,6 +204,7 @@ page_init(void) {
     cprintf("  memory: %08llx, [%08llx, %08llx].\n", mem_size, mem_begin, mem_end - 1);
     // struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
     uint64_t maxpa = mem_end;
+    // sbi_shutdown();
 
     // cprintf("e820map:\n");
     // int i;
@@ -330,7 +331,7 @@ pmm_init(void) {
     boot_cr3 = PADDR(boot_pgdir);
 
     check_pgdir();
-
+    sbi_shutdown();
     static_assert(KERNBASE % PTSIZE == 0 && KERNTOP % PTSIZE == 0);
 
     // recursively insert boot_pgdir in itself
