@@ -64,20 +64,20 @@ void print_pgdir(void);
  * KADDR - takes a physical address and returns the corresponding kernel virtual
  * address. It panics if you pass an invalid physical address.
  * */
-// #define KADDR(pa)                                                \
-//     ({                                                           \
-//         uintptr_t __m_pa = (pa);                                 \
-//         size_t __m_ppn = PPN(__m_pa);                            \
-//         if (__m_ppn >= npage) {                                  \
-//             panic("KADDR called with invalid pa %08lx", __m_pa); \
-//         }                                                        \
-//         (void *)(__m_pa + va_pa_offset);                         \
-//     })
 #define KADDR(pa)                                                \
     ({                                                           \
         uintptr_t __m_pa = (pa);                                 \
+        size_t __m_ppn = PPN(__m_pa);                            \
+        if (__m_ppn >= npage) {                                  \
+            panic("KADDR called with invalid pa %08lx", __m_pa); \
+        }                                                        \
         (void *)(__m_pa + va_pa_offset);                         \
     })
+// #define KADDR(pa)                                                \
+//     ({                                                           \
+//         uintptr_t __m_pa = (pa);                                 \
+//         (void *)(__m_pa + va_pa_offset);                         \
+//     })
 
 extern struct Page *pages;
 extern size_t npage;
@@ -113,7 +113,7 @@ kva2page(void *kva) {
 
 static inline struct Page *
 pte2page(pte_t pte) {
-    if (!(pte & PTE_P)) {
+    if (!(pte & PTE_V)) {
         panic("pte2page called with invalid pte");
     }
     return pa2page(PTE_ADDR(pte));
@@ -146,11 +146,11 @@ page_ref_dec(struct Page *page) {
     return page->ref;
 }
 
-// construct PTE from a page and permission bits
 static inline void flush_tlb() {
   asm volatile("sfence.vm");
 }
 
+// construct PTE from a page and permission bits
 static inline pte_t pte_create(uintptr_t ppn, int type) {
   return (ppn << PTE_PPN_SHIFT) | PTE_V | type;
 }

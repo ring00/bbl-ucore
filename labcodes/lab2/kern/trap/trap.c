@@ -290,9 +290,6 @@ void exception_handler(struct trapframe *tf) {
  * */
 void
 trap(struct trapframe *tf) {
-    cprintf("trap!!!\n");
-    print_trapframe(tf);
-    sbi_shutdown();
     // dispatch based on what type of trap occurred
     if ((intptr_t)tf->cause < 0) {
         // interrupts
