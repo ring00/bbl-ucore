@@ -19,14 +19,13 @@ kern_init(void) {
     // extern char edata[], ebss[];
     // memset(edata, 0, ebss - edata);
     // cons_init();                // init the console
-
     const char *message = "(THU.CST) os is loading ...";
     cprintf("%s\n\n", message);
 
     print_kerninfo();
 
     // grade_backtrace();
-    idt_init();                 // init interrupt descriptor table
+    // idt_init();                 // init interrupt descriptor table
 
     pmm_init();                 // init physical memory management
 

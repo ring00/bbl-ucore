@@ -52,35 +52,8 @@
  *
  * */
 
-/* *
- * Virtual memory map:                                          Permissions
- *                                                              kernel/user
- *
- *     4G ------------------> +---------------------------------+
- *                            |                                 |
- *                            |         Empty Memory (*)        |
- *                            |                                 |
- *                            +---------------------------------+ 0xFB000000
- *                            |   Cur. Page Table (Kern, RW)    | RW/-- PTSIZE
- *     VPT -----------------> +---------------------------------+ 0xFAC00000
- *                            |        Invalid Memory (*)       | --/--
- *     KERNTOP -------------> +---------------------------------+ 0xB8000000
- *                            |                                 |
- *                            |    Remapped Physical Memory     | RW/-- KMEMSIZE
- *                            |                                 |
- *     KERNBASE ------------> +---------------------------------+ 0x80000000
- *                            |                                 |
- *                            |                                 |
- *                            |                                 |
- *                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * (*) Note: The kernel ensures that "Invalid Memory" is *never* mapped.
- *     "Empty Memory" is normally unmapped, but user programs may map pages
- *     there if desired.
- *
- * */
-
 /* All physical memory mapped at this address */
-#define KERNBASE            0x80000000
+#define KERNBASE            0xC0000000
 #define KMEMSIZE            0x38000000                  // the maximum amount of physical memory
 #define KERNTOP             (KERNBASE + KMEMSIZE)
 
@@ -121,7 +94,7 @@ struct e820map {
 /* *
  * struct Page - Page descriptor structures. Each Page describes one
  * physical page. In kern/mm/pmm.h, you can find lots of useful functions
- * that convert Page to other data types, such as phyical address.
+ * that convert Page to other data types, such as physical address.
  * */
 struct Page {
     int ref;                        // page frame's reference counter
@@ -154,4 +127,3 @@ typedef struct {
 #endif /* !__ASSEMBLER__ */
 
 #endif /* !__KERN_MM_MEMLAYOUT_H__ */
-

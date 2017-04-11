@@ -200,6 +200,12 @@ struct taskstate {
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
+// RISC-V uses 32-bit virtual address to access 34-bit physical address!
+// Sv32 page table entry:
+// +---------12----------+--------10-------+---2----+-------8-------+
+// |       PPN[1]        |      PPN[0]     |Reserved|D|A|G|U|X|W|R|V|
+// +---------12----------+-----------------+--------+---------------+
+
 // page directory index
 #define PDX(la) ((((uintptr_t)(la)) >> PDXSHIFT) & 0x3FF)
 
@@ -216,7 +222,7 @@ struct taskstate {
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
-#define PTE_ADDR(pte)   ((uintptr_t)(pte) & ~0xFFF)
+#define PTE_ADDR(pte)   (((uintptr_t)(pte) & ~0x3FF) << 2)
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */
@@ -230,17 +236,18 @@ struct taskstate {
 
 #define PTXSHIFT        12                      // offset of PTX in a linear address
 #define PDXSHIFT        22                      // offset of PDX in a linear address
+#define PTE_PPN_SHIFT   10                      // offset pf PPN in a physical
 
 // RISC-V page table entry (PTE) fields
-// #define PTE_V     0x001 // Valid -
-// #define PTE_R     0x002 // Read -
-// #define PTE_W     0x004 // Write -
+// #define PTE_V     0x001 // Valid
+// #define PTE_R     0x002 // Read
+// #define PTE_W     0x004 // Write
 // #define PTE_X     0x008 // Execute
-// #define PTE_U     0x010 // User -
+// #define PTE_U     0x010 // User
 // #define PTE_G     0x020 // Global
-// #define PTE_A     0x040 // Accessed -
-// #define PTE_D     0x080 // Dirty -
-// #define PTE_SOFT  0x300 // Reserved for Software -
+// #define PTE_A     0x040 // Accessed
+// #define PTE_D     0x080 // Dirty
+// #define PTE_SOFT  0x300 // Reserved for Software
 
 /* page table/directory entry flags */
 #define PTE_P           0x001                   // Present -
