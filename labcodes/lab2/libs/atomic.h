@@ -3,9 +3,21 @@
 
 #include "encoding.h"
 
-// Currently, interrupts are always disabled in M-mode.
-#define disable_irqsave() (0)
-#define enable_irqrestore(flags) ((void)(flags))
+// #define disable_irqsave() (0)
+static inline bool disable_irqsave() {
+    if (read_csr(sstatus) & SSTATUS_SIE) {
+        clear_csr(sstatus, SSTATUS_SIE);
+        return 1;
+    }
+    return 0;
+}
+
+// #define enable_irqrestore(flags) ((void)(flags))
+static inline bool enable_irqrestore(bool flags) {
+    if (flags) {
+        set_csr(sstatus, SSTATUS_SIE);
+    }
+}
 
 typedef struct { int lock; } spinlock_t;
 #define SPINLOCK_INIT \
@@ -113,9 +125,9 @@ static inline bool test_bit(int nr, volatile void *addr) __attribute__((always_i
 //     asm volatile ("btsl %1, %0" :"=m" (*(volatile long *)addr) : "Ir" (nr));
 // }
 static inline void set_bit(int nr, volatile void *addr) {
-    // __op_bit(or, __NOP, nr, ((volatile long *)addr));
+    __op_bit(or, __NOP, nr, ((volatile long *)addr));
     // atomic_or(((volatile long *)addr), (1 << nr));
-    (*(volatile long *)addr) |= (1 << nr);
+    // (*(volatile long *)addr) |= (1 << nr);
 }
 
 /* *

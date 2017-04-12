@@ -242,7 +242,6 @@ check_pgfault(void) {
 
     check_mm_struct = mm_create();
     assert(check_mm_struct != NULL);
-
     struct mm_struct *mm = check_mm_struct;
     pde_t *pgdir = mm->pgdir = boot_pgdir;
     assert(pgdir[0] == 0);
@@ -313,25 +312,26 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
+    // do nothing about error_code(tf->cause)
     //check the error_code
-    switch (error_code & 3) {
-    default:
-            /* error code flag : default is 3 ( W/R=1, P=1): write, present */
-    case 2: /* error code flag : (W/R=1, P=0): write, not present */
-        if (!(vma->vm_flags & VM_WRITE)) {
-            cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
-            goto failed;
-        }
-        break;
-    case 1: /* error code flag : (W/R=0, P=1): read, present */
-        cprintf("do_pgfault failed: error code flag = read AND present\n");
-        goto failed;
-    case 0: /* error code flag : (W/R=0, P=0): read, not present */
-        if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
-            cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
-            goto failed;
-        }
-    }
+    // switch (error_code & 3) {
+    // default:
+    //         /* error code flag : default is 3 ( W/R=1, P=1): write, present */
+    // case 2: /* error code flag : (W/R=1, P=0): write, not present */
+    //     if (!(vma->vm_flags & VM_WRITE)) {
+    //         cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
+    //         goto failed;
+    //     }
+    //     break;
+    // case 1:  error code flag : (W/R=0, P=1): read, present 
+    //     cprintf("do_pgfault failed: error code flag = read AND present\n");
+    //     goto failed;
+    // case 0: /* error code flag : (W/R=0, P=0): read, not present */
+    //     if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
+    //         cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
+    //         goto failed;
+    //     }
+    // }
     /* IF (write an existed addr ) OR
      *    (write an non_existed addr && addr is writable) OR
      *    (read  an non_existed addr && addr is readable)
@@ -340,7 +340,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
      */
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
-        perm |= PTE_W;
+        perm |= (PTE_R | PTE_W);
     }
     addr = ROUNDDOWN(addr, PGSIZE);
 
@@ -370,10 +370,10 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
                                          //PT(Page Table) isn't existed, then
                                          //create a PT.
     if (*ptep == 0) {
-        pgdir_alloc_page(mm->pgdir, addr, perm);  //(2) if the phy addr isn't
-                                                  //exist, then alloc a page &
-                                                  //map the phy addr with
-                                                  //logical addr
+        if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
     } else {
         /*LAB3 EXERCISE 2: YOUR CODE
         * Now we think this pte is a  swap entry, we should load data from disk

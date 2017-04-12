@@ -95,7 +95,7 @@ struct e820map {
 /* *
  * struct Page - Page descriptor structures. Each Page describes one
  * physical page. In kern/mm/pmm.h, you can find lots of useful functions
- * that convert Page to other data types, such as phyical address.
+ * that convert Page to other data types, such as physical address.
  * */
 struct Page {
     int ref;                        // page frame's reference counter

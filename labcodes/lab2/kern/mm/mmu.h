@@ -236,7 +236,7 @@ struct taskstate {
 
 #define PTXSHIFT        12                      // offset of PTX in a linear address
 #define PDXSHIFT        22                      // offset of PDX in a linear address
-#define PTE_PPN_SHIFT   10                      // offset pf PPN in a physical
+#define PTE_PPN_SHIFT   10                      // offset of PPN in a physical address
 
 // page table entry (PTE) fields
 #define PTE_V     0x001 // Valid
@@ -257,22 +257,6 @@ struct taskstate {
 #define READ_WRITE_EXEC (PTE_R | PTE_W | PTE_X | PTE_V)
 
 #define PTE_USER (PTE_R | PTE_W | PTE_X | PTE_U | PTE_V)
-
-/* page table/directory entry flags */
-// #define PTE_P           0x001                   // Present -
-// #define PTE_W           0x004                   // Writeable -
-// #define PTE_U           0x010                   // User -
-// #define PTE_PWT         0x800                   // Write-Through
-// #define PTE_PCD         0x400                   // Cache-Disable
-// #define PTE_A           0x040                   // Accessed -
-// #define PTE_D           0x080                   // Dirty -
-// #define PTE_PS          0x200                   // Page Size
-// #define PTE_MBZ         0x100                   // Bits must be zero
-// #define PTE_AVAIL       0x300                   // Available for software use
-                                                // The PTE_AVAIL bits aren't used by the kernel or interpreted by the
-                                                // hardware, so user processes are allowed to set them arbitrarily. -
-
-// #define PTE_USER        (PTE_U | PTE_W | PTE_P)
 
 /* Control Register flags */
 #define CR0_PE          0x00000001              // Protection Enable

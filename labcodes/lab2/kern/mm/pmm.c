@@ -273,10 +273,7 @@ enable_paging(void) {
     // cr0 |= CR0_PE | CR0_PG | CR0_AM | CR0_WP | CR0_NE | CR0_TS | CR0_EM | CR0_MP;
     // cr0 &= ~(CR0_TS | CR0_EM);
     // lcr0(cr0);
-    // Trap to machine mode to enable paging
-    // cprintf("boot_cr3 : 0x%08x, sptbr 0x%08x.\n", boot_cr3, read_csr(sptbr));
     write_csr(sptbr, (uintptr_t)boot_cr3 >> PGSHIFT);
-    // cprintf("Alive on entering enable_paging\n");
 }
 
 //boot_map_segment - setup&enable the paging mechanism
@@ -531,7 +528,7 @@ static void
 check_pgdir(void) {
     // assert(npage <= KMEMSIZE / PGSIZE);
     // The memory starts at 2GB in RISC-V
-    // so npage is always bigger than KMEMSIZE / PGSIZE
+    // so npage is always larger than KMEMSIZE / PGSIZE
     assert(npage <= KERNTOP / PGSIZE);
     assert(boot_pgdir != NULL && (uint32_t)PGOFF(boot_pgdir) == 0);
     assert(get_page(boot_pgdir, 0x0, NULL) == NULL);

@@ -320,6 +320,7 @@ pmm_init(void) {
     //virtual_addr 3G~3G+4M = linear_addr 0~4M = linear_addr 3G~3G+4M = phy_addr 0~4M     
     boot_pgdir[0] = boot_pgdir[PDX(KERNBASE)];
 
+    print_pgdir();
     enable_paging();
 
     //reload gdt(third time,the last time) to map all physical memory
