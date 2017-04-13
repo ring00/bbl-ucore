@@ -7,7 +7,7 @@
 
 static inline bool
 __intr_save(void) {
-    if (read_eflags() & FL_IF) {
+    if (read_csr(sstatus) & SSTATUS_SIE) {
         intr_disable();
         return 1;
     }
@@ -25,4 +25,3 @@ __intr_restore(bool flag) {
 #define local_intr_restore(x)   __intr_restore(x);
 
 #endif /* !__KERN_SYNC_SYNC_H__ */
-

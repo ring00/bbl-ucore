@@ -32,11 +32,15 @@ swap_init(void)
 {
      swapfs_init();
 
-     if (!(1024 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT))
-     {
-          panic("bad max_swap_offset %08x.\n", max_swap_offset);
+     // if (!(1024 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT))
+     // {
+     //      panic("bad max_swap_offset %08x.\n", max_swap_offset);
+     // }
+     // Since the IDE is faked, it can only store 10 pages at most to pass the test
+     if (!(10 <= max_swap_offset &&
+        max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
+        panic("bad max_swap_offset %08x.\n", max_swap_offset);
      }
-     
 
      sm = &swap_manager_fifo;
      int r = sm->init();
@@ -98,7 +102,7 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           
           v=page->pra_vaddr; 
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
-          assert((*ptep & PTE_P) != 0);
+          assert((*ptep & PTE_V) != 0);
 
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
                     cprintf("SWAP: failed to save\n");
@@ -247,7 +251,7 @@ check_swap(void)
          //cprintf("i %d, check_ptep addr %x, value %x\n", i, check_ptep[i], *check_ptep[i]);
          assert(check_ptep[i] != NULL);
          assert(pte2page(*check_ptep[i]) == check_rp[i]);
-         assert((*check_ptep[i] & PTE_P));          
+         assert((*check_ptep[i] & PTE_V));          
      }
      cprintf("set up init env for check_swap over!\n");
      // now access the virt pages to test  page relpacement algorithm 

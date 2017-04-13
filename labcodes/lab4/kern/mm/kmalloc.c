@@ -77,7 +77,6 @@ static slob_t arena = { .next = &arena, .units = 1 };
 static slob_t *slobfree = &arena;
 static bigblock_t *bigblocks;
 
-
 static void* __slob_get_free_pages(gfp_t gfp, int order)
 {
   struct Page * page = alloc_pages(1 << order);
@@ -97,7 +96,7 @@ static void slob_free(void *b, int size);
 
 static void *slob_alloc(size_t size, gfp_t gfp, int align)
 {
-  assert( (size + SLOB_UNIT) < PAGE_SIZE );
+	assert( (size + SLOB_UNIT) < PAGE_SIZE );
 
 	slob_t *prev, *cur, *aligned = 0;
 	int delta = 0, units = SLOB_UNITS(size);

@@ -1,22 +1,30 @@
-/* Simple linker script for the ucore kernel.
+/* Simple linker script for the JOS kernel.
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
-OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
-OUTPUT_ARCH(i386)
-ENTRY(kern_entry)
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
 
-SECTIONS {
+BASE_ADDRESS = 0xC0000000;
+STACK_SIZE = 0x2000;
+
+SECTIONS
+{
     /* Load the kernel at this address: "." means the current address */
-    . = 0xC0100000;
+    . = BASE_ADDRESS;
 
     .text : {
-        *(.text .stub .text.* .gnu.linkonce.t.*)
+        *(.text._start)
+        *(.text)
+        *(.text.*)
+        *(.stub)
+        *(.gnu.linkonce.t.*)
     }
-
-    PROVIDE(etext = .); /* Define the 'etext' symbol to this value */
+    etext = .;
 
     .rodata : {
-        *(.rodata .rodata.* .gnu.linkonce.r.*)
+        *(.rodata)
+        *(.rodata.*)
+        *(.gnu.linkonce.r.*)
     }
 
     /* Include debugging information in kernel memory */
@@ -39,20 +47,36 @@ SECTIONS {
     /* Adjust the address for the data segment to the next page */
     . = ALIGN(0x1000);
 
-    /* The data segment */
     .data : {
         *(.data)
+        *(.data.*)
     }
 
     PROVIDE(edata = .);
 
     .bss : {
+        *(.sbss)
+        *(.sbss.*)
         *(.bss)
+        *(.bss.*)
+        *(COMMON)
     }
+/*    .bss : {
+        *(.bss)
+    }*/
+    PROVIDE(ebss = .);
 
-    PROVIDE(end = .);
+    /* Stack */
+    bootstack = .;
+    . += STACK_SIZE;
+    bootstacktop = .; 
+
+    end = .;
 
     /DISCARD/ : {
-        *(.eh_frame .note.GNU-stack)
+        *(.comment)
+        *(.note*)
+        *(.eh_frame)
+        *(.note.GNU-stack)
     }
 }

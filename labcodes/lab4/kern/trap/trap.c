@@ -48,15 +48,13 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
-    extern uintptr_t __vectors[];
-    int i = 0;
-    for (i = 0; i < 256; ++i) {
-        SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
-    }
-    // set the DPL of 0x80 to 3
-    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
-
-    lidt(&idt_pd);
+    extern void __alltraps(void);
+    /* Set sscratch register to 0, indicating to exception vector that we are
+     * presently executing in the kernel */
+    write_csr(sscratch, 0);
+    /* Set the exception vector address */
+    write_csr(stvec, &__alltraps);
+    set_csr(sstatus, SSTATUS_SIE);
 }
 
 static const char *
@@ -96,7 +94,7 @@ trapname(int trapno) {
 /* trap_in_kernel - test if trap happened in kernel */
 bool
 trap_in_kernel(struct trapframe *tf) {
-    return (tf->tf_cs == (uint16_t)KERNEL_CS);
+    // return (tf->tf_cs == (uint16_t)KERNEL_CS);
 }
 
 static const char *IA32flags[] = {
@@ -108,41 +106,46 @@ static const char *IA32flags[] = {
 void
 print_trapframe(struct trapframe *tf) {
     cprintf("trapframe at %p\n", tf);
-    print_regs(&tf->tf_regs);
-    cprintf("  ds   0x----%04x\n", tf->tf_ds);
-    cprintf("  es   0x----%04x\n", tf->tf_es);
-    cprintf("  fs   0x----%04x\n", tf->tf_fs);
-    cprintf("  gs   0x----%04x\n", tf->tf_gs);
-    cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
-    cprintf("  err  0x%08x\n", tf->tf_err);
-    cprintf("  eip  0x%08x\n", tf->tf_eip);
-    cprintf("  cs   0x----%04x\n", tf->tf_cs);
-    cprintf("  flag 0x%08x ", tf->tf_eflags);
-
-    int i, j;
-    for (i = 0, j = 1; i < sizeof(IA32flags) / sizeof(IA32flags[0]); i ++, j <<= 1) {
-        if ((tf->tf_eflags & j) && IA32flags[i] != NULL) {
-            cprintf("%s,", IA32flags[i]);
-        }
-    }
-    cprintf("IOPL=%d\n", (tf->tf_eflags & FL_IOPL_MASK) >> 12);
-
-    if (!trap_in_kernel(tf)) {
-        cprintf("  esp  0x%08x\n", tf->tf_esp);
-        cprintf("  ss   0x----%04x\n", tf->tf_ss);
-    }
+    print_regs(&tf->gpr);
+    cprintf("  status   0x%08x\n", tf->status);
+    cprintf("  epc      0x%08x\n", tf->epc);
+    cprintf("  badvaddr 0x%08x\n", tf->badvaddr);
+    cprintf("  cause    0x%08x\n", tf->cause);
 }
 
-void
-print_regs(struct pushregs *regs) {
-    cprintf("  edi  0x%08x\n", regs->reg_edi);
-    cprintf("  esi  0x%08x\n", regs->reg_esi);
-    cprintf("  ebp  0x%08x\n", regs->reg_ebp);
-    cprintf("  oesp 0x%08x\n", regs->reg_oesp);
-    cprintf("  ebx  0x%08x\n", regs->reg_ebx);
-    cprintf("  edx  0x%08x\n", regs->reg_edx);
-    cprintf("  ecx  0x%08x\n", regs->reg_ecx);
-    cprintf("  eax  0x%08x\n", regs->reg_eax);
+void print_regs(struct pushregs* gpr) {
+    cprintf("  zero     0x%08x\n", gpr->zero);
+    cprintf("  ra       0x%08x\n", gpr->ra);
+    cprintf("  sp       0x%08x\n", gpr->sp);
+    cprintf("  gp       0x%08x\n", gpr->gp);
+    cprintf("  tp       0x%08x\n", gpr->tp);
+    cprintf("  t0       0x%08x\n", gpr->t0);
+    cprintf("  t1       0x%08x\n", gpr->t1);
+    cprintf("  t2       0x%08x\n", gpr->t2);
+    cprintf("  s0       0x%08x\n", gpr->s0);
+    cprintf("  s1       0x%08x\n", gpr->s1);
+    cprintf("  a0       0x%08x\n", gpr->a0);
+    cprintf("  a1       0x%08x\n", gpr->a1);
+    cprintf("  a2       0x%08x\n", gpr->a2);
+    cprintf("  a3       0x%08x\n", gpr->a3);
+    cprintf("  a4       0x%08x\n", gpr->a4);
+    cprintf("  a5       0x%08x\n", gpr->a5);
+    cprintf("  a6       0x%08x\n", gpr->a6);
+    cprintf("  a7       0x%08x\n", gpr->a7);
+    cprintf("  s2       0x%08x\n", gpr->s2);
+    cprintf("  s3       0x%08x\n", gpr->s3);
+    cprintf("  s4       0x%08x\n", gpr->s4);
+    cprintf("  s5       0x%08x\n", gpr->s5);
+    cprintf("  s6       0x%08x\n", gpr->s6);
+    cprintf("  s7       0x%08x\n", gpr->s7);
+    cprintf("  s8       0x%08x\n", gpr->s8);
+    cprintf("  s9       0x%08x\n", gpr->s9);
+    cprintf("  s10      0x%08x\n", gpr->s10);
+    cprintf("  s11      0x%08x\n", gpr->s11);
+    cprintf("  t3       0x%08x\n", gpr->t3);
+    cprintf("  t4       0x%08x\n", gpr->t4);
+    cprintf("  t5       0x%08x\n", gpr->t5);
+    cprintf("  t6       0x%08x\n", gpr->t6);
 }
 
 static inline void
@@ -152,10 +155,19 @@ print_pgfault(struct trapframe *tf) {
      * bit 1 == 0 means read, 1 means write
      * bit 2 == 0 means kernel, 1 means user
      * */
-    cprintf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
-            (tf->tf_err & 4) ? 'U' : 'K',
-            (tf->tf_err & 2) ? 'W' : 'R',
-            (tf->tf_err & 1) ? "protection fault" : "no page found");
+    // cprintf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
+    //         (tf->tf_err & 4) ? 'U' : 'K',
+    //         (tf->tf_err & 2) ? 'W' : 'R',
+    //         (tf->tf_err & 1) ? "protection fault" : "no page found");
+    // The page fault test is in kernel anyway, so print a 'K/' here
+    cprintf("page falut at 0x%08x: K/", tf->badvaddr);
+    if (tf->cause == CAUSE_FAULT_LOAD) {
+        cprintf("R\n");
+    } else if (tf->cause == CAUSE_FAULT_STORE) {
+        cprintf("W\n");
+    } else {
+        cprintf("0x%08x\n", tf->cause);
+    }
 }
 
 static int
@@ -163,7 +175,7 @@ pgfault_handler(struct trapframe *tf) {
     extern struct mm_struct *check_mm_struct;
     print_pgfault(tf);
     if (check_mm_struct != NULL) {
-        return do_pgfault(check_mm_struct, tf->tf_err, rcr2());
+        return do_pgfault(check_mm_struct, tf->cause, tf->badvaddr);
     }
     panic("unhandled page fault.\n");
 }
@@ -177,52 +189,160 @@ trap_dispatch(struct trapframe *tf) {
 
     int ret;
 
-    switch (tf->tf_trapno) {
-    case T_PGFLT:  //page fault
-        if ((ret = pgfault_handler(tf)) != 0) {
+//     switch (tf->tf_trapno) {
+//     case T_PGFLT:  //page fault
+//         if ((ret = pgfault_handler(tf)) != 0) {
+//             print_trapframe(tf);
+//             panic("handle pgfault failed. %e\n", ret);
+//         }
+//         break;
+//     case IRQ_OFFSET + IRQ_TIMER:
+// #if 0
+//     LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages, 
+//     then you can add code here. 
+// #endif
+//         /* LAB1 YOUR CODE : STEP 3 */
+//         /* handle the timer interrupt */
+//         /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
+//          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
+//          * (3) Too Simple? Yes, I think so!
+//          */
+//         if (++ticks == TICK_NUM) {
+//             print_ticks();
+//             ticks = 0;
+//         }
+//         break;
+//     case IRQ_OFFSET + IRQ_COM1:
+//         c = cons_getc();
+//         cprintf("serial [%03d] %c\n", c, c);
+//         break;
+//     case IRQ_OFFSET + IRQ_KBD:
+//         c = cons_getc();
+//         cprintf("kbd [%03d] %c\n", c, c);
+//         break;
+//     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
+//     case T_SWITCH_TOU:
+//     case T_SWITCH_TOK:
+//         panic("T_SWITCH_** ??\n");
+//         break;
+//     case IRQ_OFFSET + IRQ_IDE1:
+//     case IRQ_OFFSET + IRQ_IDE2:
+//         /* do nothing */
+//         break;
+//     default:
+//         // in kernel, it must be a mistake
+//         if ((tf->tf_cs & 3) == 0) {
+//             print_trapframe(tf);
+//             panic("unexpected trap in kernel.\n");
+//         }
+//     }
+}
+
+void interrupt_handler(struct trapframe *tf) {
+    intptr_t cause = (tf->cause << 1) >> 1;
+    switch (cause) {
+        case 0:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_SOFT:
+            cprintf("Supervisor software interrupt\n");
+            break;
+        case IRQ_H_SOFT:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_SOFT:
+            cprintf("Machine software interrupt\n");
+            break;
+        case 4:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_TIMER:
+            // "All bits besides SSIP and USIP in the sip register are
+            // read-only." -- privileged spec1.9.1, 4.1.4, p59
+            // In fact, Call sbi_set_timer will clear STIP, or you can clear it
+            // directly.
+            // clear_csr(sip, SIP_STIP);
+            clock_set_next_event();
+            if (++ticks % TICK_NUM == 0) {
+                print_ticks();
+            }
+            break;
+        case IRQ_H_TIMER:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_TIMER:
+            cprintf("Machine software interrupt\n");
+            break;
+        case 8:
+            cprintf("User software interrupt\n");
+            break;
+        case IRQ_S_EXT:
+            cprintf("Supervisor external interrupt\n");
+            break;
+        case IRQ_H_EXT:
+            cprintf("Hypervisor software interrupt\n");
+            break;
+        case IRQ_M_EXT:
+            cprintf("Machine software interrupt\n");
+            break;
+        default:
             print_trapframe(tf);
-            panic("handle pgfault failed. %e\n", ret);
-        }
-        break;
-    case IRQ_OFFSET + IRQ_TIMER:
-#if 0
-    LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages, 
-    then you can add code here. 
-#endif
-        /* LAB1 YOUR CODE : STEP 3 */
-        /* handle the timer interrupt */
-        /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
-         * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
-         * (3) Too Simple? Yes, I think so!
-         */
-        if (++ticks == TICK_NUM) {
-            print_ticks();
-            ticks = 0;
-        }
-        break;
-    case IRQ_OFFSET + IRQ_COM1:
-        c = cons_getc();
-        cprintf("serial [%03d] %c\n", c, c);
-        break;
-    case IRQ_OFFSET + IRQ_KBD:
-        c = cons_getc();
-        cprintf("kbd [%03d] %c\n", c, c);
-        break;
-    //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
-    case T_SWITCH_TOU:
-    case T_SWITCH_TOK:
-        panic("T_SWITCH_** ??\n");
-        break;
-    case IRQ_OFFSET + IRQ_IDE1:
-    case IRQ_OFFSET + IRQ_IDE2:
-        /* do nothing */
-        break;
-    default:
-        // in kernel, it must be a mistake
-        if ((tf->tf_cs & 3) == 0) {
+            break;
+    }
+}
+
+void exception_handler(struct trapframe *tf) {
+    int ret = 0;
+    switch (tf->cause) {
+        case CAUSE_MISALIGNED_FETCH:
+            cprintf("Instruction address misaligned\n");
+            break;
+        case CAUSE_FAULT_FETCH:
+            cprintf("Instruction access fault\n");
             print_trapframe(tf);
-            panic("unexpected trap in kernel.\n");
-        }
+            sbi_shutdown();
+            break;
+        case CAUSE_ILLEGAL_INSTRUCTION:
+            cprintf("Illegal instruction\n");
+            break;
+        case CAUSE_BREAKPOINT:
+            cprintf("Breakpoint\n");
+            break;
+        case CAUSE_MISALIGNED_LOAD:
+            cprintf("Load address misaligned\n");
+            break;
+        case CAUSE_FAULT_LOAD:
+            cprintf("Load access fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
+            break;
+        case CAUSE_MISALIGNED_STORE:
+            cprintf("Store/AMO address misaligned\n");
+            break;
+        case CAUSE_FAULT_STORE:
+            cprintf("Store/AMO access fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
+            break;
+        case CAUSE_USER_ECALL:
+            cprintf("Environment call from U-mode\n");
+            break;
+        case CAUSE_SUPERVISOR_ECALL:
+            cprintf("Environment call from S-mode\n");
+            break;
+        case CAUSE_HYPERVISOR_ECALL:
+            cprintf("Environment call from H-mode\n");
+            break;
+        case CAUSE_MACHINE_ECALL:
+            cprintf("Environment call from M-mode\n");
+            break;
+        default:
+            print_trapframe(tf);
+            break;
     }
 }
 
@@ -233,7 +353,18 @@ trap_dispatch(struct trapframe *tf) {
  * */
 void
 trap(struct trapframe *tf) {
+    // print_trapframe(tf);
+    // sbi_shutdown();
     // dispatch based on what type of trap occurred
-    trap_dispatch(tf);
+    if ((intptr_t)tf->cause < 0) {
+        // interrupts
+        interrupt_handler(tf);
+    } else {
+        // exceptions
+        exception_handler(tf);
+    }
 }
 
+void debug() {
+    cprintf("debug\n");
+}

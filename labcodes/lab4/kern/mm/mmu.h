@@ -200,6 +200,12 @@ struct taskstate {
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
+// RISC-V uses 32-bit virtual address to access 34-bit physical address!
+// Sv32 page table entry:
+// +---------12----------+--------10-------+---2----+-------8-------+
+// |       PPN[1]        |      PPN[0]     |Reserved|D|A|G|U|X|W|R|V|
+// +---------12----------+-----------------+--------+---------------+
+
 // page directory index
 #define PDX(la) ((((uintptr_t)(la)) >> PDXSHIFT) & 0x3FF)
 
@@ -216,7 +222,7 @@ struct taskstate {
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
-#define PTE_ADDR(pte)   ((uintptr_t)(pte) & ~0xFFF)
+#define PTE_ADDR(pte)   (((uintptr_t)(pte) & ~0x3FF) << (PTXSHIFT - PTE_PPN_SHIFT))
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */
@@ -230,22 +236,27 @@ struct taskstate {
 
 #define PTXSHIFT        12                      // offset of PTX in a linear address
 #define PDXSHIFT        22                      // offset of PDX in a linear address
+#define PTE_PPN_SHIFT   10                      // offset of PPN in a physical address
 
-/* page table/directory entry flags */
-#define PTE_P           0x001                   // Present
-#define PTE_W           0x002                   // Writeable
-#define PTE_U           0x004                   // User
-#define PTE_PWT         0x008                   // Write-Through
-#define PTE_PCD         0x010                   // Cache-Disable
-#define PTE_A           0x020                   // Accessed
-#define PTE_D           0x040                   // Dirty
-#define PTE_PS          0x080                   // Page Size
-#define PTE_MBZ         0x180                   // Bits must be zero
-#define PTE_AVAIL       0xE00                   // Available for software use
-                                                // The PTE_AVAIL bits aren't used by the kernel or interpreted by the
-                                                // hardware, so user processes are allowed to set them arbitrarily.
+// page table entry (PTE) fields
+#define PTE_V     0x001 // Valid
+#define PTE_R     0x002 // Read
+#define PTE_W     0x004 // Write
+#define PTE_X     0x008 // Execute
+#define PTE_U     0x010 // User
+#define PTE_G     0x020 // Global
+#define PTE_A     0x040 // Accessed
+#define PTE_D     0x080 // Dirty
+#define PTE_SOFT  0x300 // Reserved for Software
 
-#define PTE_USER        (PTE_U | PTE_W | PTE_P)
+#define PAGE_TABLE_DIR (PTE_V)
+#define READ_ONLY (PTE_R | PTE_V)
+#define READ_WRITE (PTE_R | PTE_W | PTE_V)
+#define EXEC_ONLY (PTE_X | PTE_V)
+#define READ_EXEC (PTE_R | PTE_X | PTE_V)
+#define READ_WRITE_EXEC (PTE_R | PTE_W | PTE_X | PTE_V)
+
+#define PTE_USER (PTE_R | PTE_W | PTE_X | PTE_U | PTE_V)
 
 /* Control Register flags */
 #define CR0_PE          0x00000001              // Protection Enable
@@ -269,4 +280,3 @@ struct taskstate {
 #define CR4_VME         0x00000001              // V86 Mode Extensions
 
 #endif /* !__KERN_MM_MMU_H__ */
-
