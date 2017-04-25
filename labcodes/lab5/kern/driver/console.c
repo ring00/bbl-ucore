@@ -7,6 +7,7 @@
 #include <trap.h>
 #include <memlayout.h>
 #include <sync.h>
+#include <sbi.h>
 
 /* stupid I/O delay routine necessitated by historical PC design flaws */
 static void
@@ -428,9 +429,7 @@ cons_putc(int c) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        lpt_putc(c);
-        cga_putc(c);
-        serial_putc(c);
+        sbi_console_putchar((unsigned char)c);
     }
     local_intr_restore(intr_flag);
 }
@@ -445,19 +444,7 @@ cons_getc(void) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        // poll for any pending input characters,
-        // so that this function works even when interrupts are disabled
-        // (e.g., when called from the kernel monitor).
-        serial_intr();
-        kbd_intr();
-
-        // grab the next character from the input buffer.
-        if (cons.rpos != cons.wpos) {
-            c = cons.buf[cons.rpos ++];
-            if (cons.rpos == CONSBUFSIZE) {
-                cons.rpos = 0;
-            }
-        }
+        c = sbi_console_getchar();
     }
     local_intr_restore(intr_flag);
     return c;

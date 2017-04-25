@@ -313,7 +313,8 @@ pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
-    boot_pgdir[PDX(VPT)] = pte_create(page2ppn(kva2page(boot_pgdir)), READ_WRITE);
+    // boot_pgdir[PDX(VPT)] = pte_create(page2ppn(kva2page(boot_pgdir)), READ_WRITE);
+    boot_pgdir[PDX(VPT)] = pte_create(PPN(boot_cr3), READ_WRITE);
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     //linear_addr KERNBASE~KERNBASE+KMEMSIZE = phy_addr 0~KMEMSIZE
@@ -481,9 +482,9 @@ page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm) {
 // edited are the ones currently in use by the processor.
 void
 tlb_invalidate(pde_t *pgdir, uintptr_t la) {
-    flush_tlb();
+    // flush_tlb();
     // The flush_tlb flush the entire TLB, is there any better way?
-    // asm volatile("sfence.vm %0" : : "r"((uintptr_t)addr));
+    asm volatile("sfence.vm %0" : : "r"(la));
 }
 
 // pgdir_alloc_page - call alloc_page & page_insert functions to 

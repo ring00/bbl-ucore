@@ -52,6 +52,11 @@ printnum(void (*putch)(int, void*), void *putdat,
     }
     // then print this (the least significant) digit
     putch("0123456789abcdef"[mod], putdat);
+
+    // Crashes if num >= base. No idea what going on here
+    // Here is a quick fix
+    // sbi_console_putchar("0123456789abcdef"[mod]);
+    // (*(int *)putdat)++;
 }
 
 /* *

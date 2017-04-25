@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <intr.h>
 #include <kmonitor.h>
+#include <sbi.h>
 
 static bool is_panic = 0;
 
@@ -25,6 +26,8 @@ __panic(const char *file, int line, const char *fmt, ...) {
     va_end(ap);
 
 panic_dead:
+    // No debug monitor here
+    sbi_shutdown();
     intr_disable();
     while (1) {
         kmonitor(NULL);

@@ -105,15 +105,24 @@ alloc_proc(void) {
      */
      //LAB5 YOUR CODE : (update LAB4 steps)
     /*
-     * below fields(add in LAB5) in proc_struct need to be initialized	
+     * below fields(add in LAB5) in proc_struct need to be initialized  
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
-	 */
-    *proc = (struct proc_struct){
-            .state = PROC_UNINIT,
-            .pid = -1,
-            .cr3 = boot_cr3
-        };
+     */
+        proc->state = PROC_UNINIT;
+        proc->pid = -1;
+        proc->runs = 0;
+        proc->kstack = 0;
+        proc->need_resched = 0;
+        proc->parent = NULL;
+        proc->mm = NULL;
+        memset(&(proc->context), 0, sizeof(struct context));
+        proc->tf = NULL;
+        proc->cr3 = boot_cr3;
+        proc->flags = 0;
+        memset(proc->name, 0, PROC_NAME_LEN);
+        proc->wait_state = 0;
+        proc->cptr = proc->optr = proc->yptr = NULL;
     }
     return proc;
 }
@@ -196,10 +205,43 @@ get_pid(void) {
     return last_pid;
 }
 
+void print_context(struct context* context) {
+    cprintf("ra = 0x%08x\n", context->ra);
+    cprintf("sp = 0x%08x\n\n", context->sp);
+    // cprintf("s0 = 0x%08x\n", context->s0);
+    // cprintf("s1 = 0x%08x\n", context->s1);
+    // cprintf("s2 = 0x%08x\n", context->s2);
+    // cprintf("s3 = 0x%08x\n", context->s3);
+    // cprintf("s4 = 0x%08x\n", context->s4);
+    // cprintf("s5 = 0x%08x\n", context->s5);
+    // cprintf("s6 = 0x%08x\n", context->s6);
+    // cprintf("s7 = 0x%08x\n", context->s7);
+    // cprintf("s8 = 0x%08x\n", context->s8);
+    // cprintf("s9 = 0x%08x\n", context->s9);
+    // cprintf("s10 = 0x%08x\n", context->s10);
+    // cprintf("s11 = 0x%08x\n", context->s11);
+}
+
 // proc_run - make process "proc" running on cpu
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
 proc_run(struct proc_struct *proc) {
+    // bool intr_flag;
+    // local_intr_save(intr_flag);
+    // {
+    //     cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
+    //     cprintf("proc->cr3: 0x%08x\n", proc->cr3);
+    //     cprintf("context ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
+    //     // print_trapframe(proc->tf);
+    // }
+    // local_intr_restore(intr_flag);
+    // print_trapframe(proc->tf);
+    // if (initproc->tf) {
+        // cprintf("initproc->tf:\n");
+        // print_trapframe(initproc->tf);
+    // }
+    print_context(&current->context);
+    print_context(&proc->context);
     if (proc != current) {
         bool intr_flag;
         struct proc_struct *prev = current, *next = proc;
@@ -207,6 +249,7 @@ proc_run(struct proc_struct *proc) {
         {
             current = proc;
             load_esp0(next->kstack + KSTACKSIZE);
+            // asm volatile("lw sp, %0" : : "m"(next->context.sp) : "memory");
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
         }
@@ -256,12 +299,17 @@ int
 kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;
     memset(&tf, 0, sizeof(struct trapframe));
-    tf.tf_cs = KERNEL_CS;
-    tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
-    tf.tf_regs.reg_ebx = (uint32_t)fn;
-    tf.tf_regs.reg_edx = (uint32_t)arg;
-    tf.tf_eip = (uint32_t)kernel_thread_entry;
-    return do_fork(clone_flags | CLONE_VM, 0, &tf);
+
+    // tf.tf_cs = KERNEL_CS;
+    // tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
+    // tf.tf_regs.reg_ebx = (uint32_t)fn;
+    // tf.tf_regs.reg_edx = (uint32_t)arg;
+    // tf.tf_eip = (uint32_t)kernel_thread_entry;
+    tf.gpr.s0 = (uintptr_t)fn;
+    tf.gpr.s1 = (uintptr_t)arg;
+    tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
+    tf.epc = (uintptr_t)kernel_thread_entry;
+    return do_fork(clone_flags | CLONE_VM, bootstack, &tf);
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
@@ -290,7 +338,9 @@ setup_pgdir(struct mm_struct *mm) {
     }
     pde_t *pgdir = page2kva(page);
     memcpy(pgdir, boot_pgdir, PGSIZE);
-    pgdir[PDX(VPT)] = PADDR(pgdir) | PTE_P | PTE_W;
+    // pgdir[PDX(VPT)] = PADDR(pgdir) | PTE_P | PTE_W;
+    pgdir[PDX(VPT)] = pte_create(page2ppn(page), PTE_V | READ_WRITE);
+
     mm->pgdir = pgdir;
     return 0;
 }
@@ -352,14 +402,22 @@ bad_mm:
 //             - setup the kernel entry point and stack of process
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
+    // proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE - sizeof(struct trapframe));
+    // The same...
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
     *(proc->tf) = *tf;
-    proc->tf->tf_regs.reg_eax = 0;
-    proc->tf->tf_esp = esp;
-    proc->tf->tf_eflags |= FL_IF;
+    // proc->tf->tf_regs.reg_eax = 0;
+    // Set a0 to 0 so a child process knows it's just forked
+    proc->tf->gpr.a0 = 0;
+    // proc->tf->tf_esp = esp;
+    // proc->tf->tf_eflags |= FL_IF;
 
-    proc->context.eip = (uintptr_t)forkret;
-    proc->context.esp = (uintptr_t)(proc->tf);
+    // proc->context.eip = (uintptr_t)forkret;
+    // proc->context.esp = (uintptr_t)(proc->tf);
+    // proc->tf->gpr.sp = esp;
+    proc->tf->gpr.sp = proc->kstack + KSTACKSIZE;
+    proc->context.ra = (uintptr_t)forkret;
+    proc->context.sp = (uintptr_t)(proc->tf);
 }
 
 /* do_fork -     parent process for a new child process
@@ -401,24 +459,29 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
 
-	//LAB5 YOUR CODE : (update LAB4 steps)
+    //LAB5 YOUR CODE : (update LAB4 steps)
    /* Some Functions
     *    set_links:  set the relation links of process.  ALSO SEE: remove_links:  lean the relation links of process 
     *    -------------------
-	*    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
-	*    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
+    *    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
+    *    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
-	if ((proc = alloc_proc()) == NULL) {
+    if ((proc = alloc_proc()) == NULL) {
         goto fork_out;
     }
-    proc->parent = current;
-    current->wait_state = 0;
 
-    if ((ret = setup_kstack(proc)) == -E_NO_MEM) {
+    proc->parent = current;
+    assert(current->wait_state == 0);
+
+    if (setup_kstack(proc) != 0) {
         goto bad_fork_cleanup_proc;
     }
-
-    copy_mm(clone_flags, proc);
+    if (copy_mm(clone_flags, proc) != 0) {
+        goto bad_fork_cleanup_kstack;
+    }
+    // copy_thread(proc, stack, tf);
+    // This is the right way in Lab4, I suppose.
+    // But not in Lab 5
     copy_thread(proc, stack, tf);
 
     bool intr_flag;
@@ -455,7 +518,6 @@ do_exit(int error_code) {
     if (current == initproc) {
         panic("initproc exit.\n");
     }
-    
     struct mm_struct *mm = current->mm;
     if (mm != NULL) {
         lcr3(boot_cr3);
@@ -468,7 +530,6 @@ do_exit(int error_code) {
     }
     current->state = PROC_ZOMBIE;
     current->exit_code = error_code;
-    
     bool intr_flag;
     struct proc_struct *proc;
     local_intr_save(intr_flag);
@@ -495,7 +556,7 @@ do_exit(int error_code) {
         }
     }
     local_intr_restore(intr_flag);
-    
+
     schedule();
     panic("do_exit will not return!! %d.\n", current->pid);
 }
@@ -547,11 +608,14 @@ load_icode(unsigned char *binary, size_t size) {
             continue ;
         }
     //(3.5) call mm_map fun to setup the new vma ( ph->p_va, ph->p_memsz)
-        vm_flags = 0, perm = PTE_U;
+        vm_flags = 0, perm = PTE_U | PTE_V;
         if (ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC;
         if (ph->p_flags & ELF_PF_W) vm_flags |= VM_WRITE;
         if (ph->p_flags & ELF_PF_R) vm_flags |= VM_READ;
-        if (vm_flags & VM_WRITE) perm |= PTE_W;
+        // modify the perm bits here for RISC-V
+        if (vm_flags & VM_READ) perm |= PTE_R;
+        if (vm_flags & VM_WRITE) perm |= (PTE_W | PTE_R);
+        if (vm_flags & VM_EXEC) perm |= PTE_X;
         if ((ret = mm_map(mm, ph->p_va, ph->p_memsz, vm_flags, NULL)) != 0) {
             goto bad_cleanup_mmap;
         }
@@ -621,6 +685,8 @@ load_icode(unsigned char *binary, size_t size) {
 
     //(6) setup trapframe for user environment
     struct trapframe *tf = current->tf;
+    // Keep sstatus
+    uintptr_t sstatus = tf->status;
     memset(tf, 0, sizeof(struct trapframe));
     /* LAB5:EXERCISE1 YOUR CODE
      * should set tf_cs,tf_ds,tf_es,tf_ss,tf_esp,tf_eip,tf_eflags
@@ -631,11 +697,15 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
-    tf->tf_cs = USER_CS;
-    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
-    tf->tf_esp = USTACKTOP;
-    tf->tf_eip = elf->e_entry;
-    tf->tf_eflags |= FL_IF;
+    // tf->tf_cs = USER_CS;
+    // tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+    // tf->tf_esp = USTACKTOP;
+    // tf->tf_eip = elf->e_entry;
+    // tf->tf_eflags |= FL_IF;
+    tf->gpr.sp = USTACKTOP;
+    tf->epc = elf->e_entry;
+    tf->status = sstatus & ~(SSTATUS_SPP | SSTATUS_SPIE);
+
     ret = 0;
 out:
     return ret;
@@ -777,11 +847,34 @@ do_kill(int pid) {
 static int
 kernel_execve(const char *name, unsigned char *binary, size_t size) {
     int ret, len = strlen(name);
-    asm volatile (
-        "int %1;"
-        : "=a" (ret)
-        : "i" (T_SYSCALL), "0" (SYS_exec), "d" (name), "c" (len), "b" (binary), "D" (size)
+    // asm volatile (
+    //     "int %1;"
+    //     : "=a" (ret)
+    //     : "i" (T_SYSCALL), "0" (SYS_exec), "d" (name), "c" (len), "b" (binary), "D" (size)
+    //     : "memory");
+    asm volatile(
+        "li a0, %1\n"
+        "lw a1, %2\n"
+        "lw a2, %3\n"
+        "lw a3, %4\n"
+        "lw a4, %5\n"
+        "li a7, 10\n"
+        "ecall\n"
+        "sw a0, %0"
+        : "=m"(ret)
+        : "i"(SYS_exec), "m"(name), "m"(len), "m"(binary), "m"(size)
         : "memory");
+    // do_execve(name, len, binary, size);
+    // asm volatile("sret");
+    // uintptr_t sstatus = read_csr(sstatus);
+    // sstatus = INSERT_FIELD(sstatus, SSTATUS_SPP, PRV_U);
+    // sstatus = INSERT_FIELD(sstatus, SSTATUS_SPIE, 0);
+    // write_csr(sstatus, sstatus);
+    // write_csr(mscratch, MACHINE_STACK_TOP() - MENTRY_FRAME_SIZE);
+    // write_csr(mepc, fn);
+    // write_csr(sptbr, (uintptr_t)root_page_table >> RISCV_PGSHIFT);
+    // asm volatile("mv a0, %0; mv sp, %0; mret" : : "r"(stack));
+    // __builtin_unreachable();
     return ret;
 }
 

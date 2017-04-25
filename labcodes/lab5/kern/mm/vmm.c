@@ -400,25 +400,26 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
-    //check the error_code
-    switch (error_code & 3) {
-    default:
-            /* error code flag : default is 3 ( W/R=1, P=1): write, present */
-    case 2: /* error code flag : (W/R=1, P=0): write, not present */
-        if (!(vma->vm_flags & VM_WRITE)) {
-            cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
-            goto failed;
-        }
-        break;
-    case 1: /* error code flag : (W/R=0, P=1): read, present */
-        cprintf("do_pgfault failed: error code flag = read AND present\n");
-        goto failed;
-    case 0: /* error code flag : (W/R=0, P=0): read, not present */
-        if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
-            cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
-            goto failed;
-        }
-    }
+    // do nothing about error_code(tf->cause)
+    // //check the error_code
+    // switch (error_code & 3) {
+    // default:
+    //         /* error code flag : default is 3 ( W/R=1, P=1): write, present */
+    // case 2: /* error code flag : (W/R=1, P=0): write, not present */
+    //     if (!(vma->vm_flags & VM_WRITE)) {
+    //         cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
+    //         goto failed;
+    //     }
+    //     break;
+    // case 1: /* error code flag : (W/R=0, P=1): read, present */
+    //     cprintf("do_pgfault failed: error code flag = read AND present\n");
+    //     goto failed;
+    // case 0: /* error code flag : (W/R=0, P=0): read, not present */
+    //     if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
+    //         cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
+    //         goto failed;
+    //     }
+    // }
     /* IF (write an existed addr ) OR
      *    (write an non_existed addr && addr is writable) OR
      *    (read  an non_existed addr && addr is readable)
@@ -427,7 +428,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
      */
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
-        perm |= PTE_W;
+        perm |= READ_WRITE;
     }
     addr = ROUNDDOWN(addr, PGSIZE);
 
@@ -451,47 +452,33 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     *   mm->pgdir : the PDT of these vma
     *
     */
-    /*LAB3 EXERCISE 1: YOUR CODE*/
-    ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
-                                            //PT(Page Table) isn't existed, then
-                                            //create a PT.
-    if (*ptep == 0) {
-        pgdir_alloc_page(mm->pgdir, addr, perm);  //(2) if the phy addr isn't
-                                                  //exist, then alloc a page &
-                                                  //map the phy addr with
-                                                  //logical addr
-    } else {
-        /*LAB3 EXERCISE 2: YOUR CODE
-        * Now we think this pte is a  swap entry, we should load data from disk
-        * to a page with phy addr,
-        * and map the phy addr with logical addr, trigger swap manager to record
-        * the access situation of this page.
-        *
-        *  Some Useful MACROs and DEFINEs, you can use them in below
-        * implementation.
-        *  MACROs or Functions:
-        *    swap_in(mm, addr, &page) : alloc a memory page, then according to
-        * the swap entry in PTE for addr,
-        *                               find the addr of disk page, read the
-        * content of disk page into this memroy page
-        *    page_insert ： build the map of phy addr of an Page with the linear
-        * addr la
-        *    swap_map_swappable ： set the page swappable
-        */
-        if (swap_init_ok) {
-            struct Page *page = NULL;
-            swap_in(mm, addr, &page);  //(1）According to the mm AND addr, try
-                                       //to load the content of right disk page
-                                       //    into the memory which page managed.
-            page_insert(mm->pgdir, page, addr, perm);  //(2) According to the mm,
-                                                   //addr AND page, setup the
-                                                   //map of phy addr <--->
-                                                   //logical addr
-            swap_map_swappable(mm, addr, page,
-                               0);  //(3) make the page swappable.
+    // try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    // (notice the 3th parameter '1')
+    if ((ptep = get_pte(mm->pgdir, addr, 1)) == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    
+    if (*ptep == 0) { // if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
+        if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }
+    else { // if this pte is a swap entry, then load data from disk to a page with phy addr
+           // and call page_insert to map the phy addr with logical addr
+        if(swap_init_ok) {
+            struct Page *page=NULL;
+            if ((ret = swap_in(mm, addr, &page)) != 0) {
+                cprintf("swap_in in do_pgfault failed\n");
+                goto failed;
+            }    
+            page_insert(mm->pgdir, page, addr, perm);
+            swap_map_swappable(mm, addr, page, 1);
             page->pra_vaddr = addr;
-        } else {
-            cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
+        }
+        else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
             goto failed;
         }
    }

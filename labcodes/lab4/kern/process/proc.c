@@ -231,10 +231,8 @@ kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     tf.gpr.s0 = (uintptr_t)fn;
     tf.gpr.s1 = (uintptr_t)arg;
     tf.status = read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE;
-    cprintf("tf.status = 0x%08x\n", tf.status);
     tf.epc = (uintptr_t)kernel_thread_entry;
-    return do_fork(clone_flags | CLONE_VM, bootstacktop, &tf);
-    // return do_fork(clone_flags | CLONE_VM, 0, &tf);
+    return do_fork(clone_flags | CLONE_VM, 0, &tf);
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
@@ -267,7 +265,7 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
 //             - setup the kernel entry point and stack of process
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
-    proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
+    proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE - sizeof(struct trapframe));
     *(proc->tf) = *tf;
     // proc->tf->tf_regs.reg_eax = 0;
     // proc->tf->tf_esp = esp;
@@ -275,7 +273,8 @@ copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
 
     // proc->context.eip = (uintptr_t)forkret;
     // proc->context.esp = (uintptr_t)(proc->tf);
-    proc->tf->gpr.sp = esp;
+    // proc->tf->gpr.sp = esp;
+    proc->tf->gpr.sp = proc->kstack + KSTACKSIZE;
     proc->context.ra = (uintptr_t)forkret;
     proc->context.sp = (uintptr_t)(proc->tf);
 }
@@ -325,7 +324,9 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto bad_fork_cleanup_proc;
     }
     copy_mm(clone_flags, proc);
-    copy_thread(proc, stack, tf);
+    // copy_thread(proc, stack, tf);
+    // This is the right way, I suppose.
+    copy_thread(proc, proc->kstack, tf);
 
     const int pid = get_pid();
     proc->pid = pid;
