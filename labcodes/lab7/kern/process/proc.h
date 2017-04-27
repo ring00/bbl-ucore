@@ -24,14 +24,20 @@ enum proc_state {
 // (Not saving %eax just simplifies the switching code.)
 // The layout of context must match code in switch.S.
 struct context {
-    uint32_t eip;
-    uint32_t esp;
-    uint32_t ebx;
-    uint32_t ecx;
-    uint32_t edx;
-    uint32_t esi;
-    uint32_t edi;
-    uint32_t ebp;
+    uintptr_t ra;
+    uintptr_t sp;
+    uintptr_t s0;
+    uintptr_t s1;
+    uintptr_t s2;
+    uintptr_t s3;
+    uintptr_t s4;
+    uintptr_t s5;
+    uintptr_t s6;
+    uintptr_t s7;
+    uintptr_t s8;
+    uintptr_t s9;
+    uintptr_t s10;
+    uintptr_t s11;
 };
 
 #define PROC_NAME_LEN               50

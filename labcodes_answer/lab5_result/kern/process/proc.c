@@ -199,17 +199,23 @@ get_pid(void) {
     return last_pid;
 }
 
-void print_context(struct context* context) {
-    cprintf("eip = 0x%08x\n", context->eip);
-    cprintf("esp = 0x%08x\n", context->esp);
+void print_proc(struct proc_struct* proc) {
+    cprintf("\n");
+    cprintf("name: %s, pid = %d\n", proc->name, proc->pid);
+    cprintf("cr3: 0x%08x\n", proc->cr3);
+    cprintf("eip = 0x%08x\n", proc->context.eip);
+    cprintf("esp = 0x%08x\n", proc->context.esp);
+    cprintf("\n");
 }
 
 // proc_run - make process "proc" running on cpu
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
 proc_run(struct proc_struct *proc) {
-    print_context(&current->context);
-    print_context(&proc->context);
+    cprintf("\n=====proc_run begin=====\n");
+    print_proc(current);
+    print_proc(proc);
+    cprintf("\n=====proc_run end=====\n");
     if (proc != current) {
         bool intr_flag;
         struct proc_struct *prev = current, *next = proc;

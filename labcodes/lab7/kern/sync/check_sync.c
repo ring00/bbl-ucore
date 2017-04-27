@@ -81,7 +81,7 @@ semaphore_t s[N]; /* 每个哲学家一个信号量 */
 
 struct proc_struct *philosopher_proc_sema[N];
 
-void phi_test_sema(i) /* i：哲学家号码从0到N-1 */
+void phi_test_sema(int i) /* i：哲学家号码从0到N-1 */
 { 
     if(state_sema[i]==HUNGRY&&state_sema[LEFT]!=EATING
             &&state_sema[RIGHT]!=EATING)
@@ -167,7 +167,7 @@ struct proc_struct *philosopher_proc_condvar[N]; // N philosopher
 int state_condvar[N];                            // the philosopher's state: EATING, HUNGARY, THINKING  
 monitor_t mt, *mtp=&mt;                          // monitor
 
-void phi_test_condvar (i) { 
+void phi_test_condvar (int i) { 
     if(state_condvar[i]==HUNGRY&&state_condvar[LEFT]!=EATING
             &&state_condvar[RIGHT]!=EATING) {
         cprintf("phi_test_condvar: state_condvar[%d] will eating\n",i);

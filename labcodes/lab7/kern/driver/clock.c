@@ -2,6 +2,8 @@
 #include <trap.h>
 #include <stdio.h>
 #include <picirq.h>
+#include <sbi.h>
+#include <clock.h>
 
 /* *
  * Support for time-related hardware gadgets - the 8253 timer,
@@ -25,21 +27,43 @@
 
 volatile size_t ticks;
 
+static inline uint64_t get_cycles(void) {
+#if __riscv_xlen == 64
+    uint64_t n;
+    __asm__ __volatile__("rdtime %0" : "=r"(n));
+    return n;
+#else
+    uint32_t lo, hi, tmp;
+    __asm__ __volatile__(
+        "1:\n"
+        "rdtimeh %0\n"
+        "rdtime %1\n"
+        "rdtimeh %2\n"
+        "bne %0, %2, 1b"
+        : "=&r"(hi), "=&r"(lo), "=&r"(tmp));
+    return ((uint64_t)hi << 32) | lo;
+#endif
+}
+
+static uint64_t timebase;
 /* *
  * clock_init - initialize 8253 clock to interrupt 100 times per second,
  * and then enable IRQ_TIMER.
  * */
-void
-clock_init(void) {
-    // set 8253 timer-chip
-    outb(TIMER_MODE, TIMER_SEL0 | TIMER_RATEGEN | TIMER_16BIT);
-    outb(IO_TIMER1, TIMER_DIV(100) % 256);
-    outb(IO_TIMER1, TIMER_DIV(100) / 256);
+void clock_init(void) {
+    // divided by 500 when using Spike(2MHz)
+    // timebase = sbi_timebase() / 500;
+    // divided by 100 when using QEMU(10MHz)
+    timebase = sbi_timebase() / 100;
+    // cprintf("mstatus = %08x\n", read_csr(mstatus));
+    clock_set_next_event();
 
     // initialize time counter 'ticks' to zero
     ticks = 0;
 
     cprintf("++ setup timer interrupts\n");
-    pic_enable(IRQ_TIMER);
 }
 
+void clock_set_next_event(void) {
+	sbi_set_timer(get_cycles() + timebase);
+}
