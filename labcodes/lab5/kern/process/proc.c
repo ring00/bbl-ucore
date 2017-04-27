@@ -226,29 +226,35 @@ void print_context(struct context* context) {
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
 proc_run(struct proc_struct *proc) {
-    // bool intr_flag;
-    // local_intr_save(intr_flag);
-    // {
-    //     cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
-    //     cprintf("proc->cr3: 0x%08x\n", proc->cr3);
-    //     cprintf("context ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
-    //     // print_trapframe(proc->tf);
-    // }
-    // local_intr_restore(intr_flag);
+    bool intr_flag;
+    local_intr_save(intr_flag);
+    {
+        cprintf("\n\n\n");
+        cprintf("current name: %s pid: %d\n", current->name, current->pid);
+        cprintf("current->cr3: 0x%08x\n", current->cr3);
+        cprintf("context ra = 0x%08x, sp = 0x%08x\n", current->context.ra, current->context.sp);
+        cprintf("\n");
+        cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
+        cprintf("proc->cr3: 0x%08x\n", proc->cr3);
+        cprintf("context ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
+        // print_trapframe(proc->tf);
+        cprintf("\n\n\n");
+    }
+    local_intr_restore(intr_flag);
     // print_trapframe(proc->tf);
     // if (initproc->tf) {
         // cprintf("initproc->tf:\n");
         // print_trapframe(initproc->tf);
     // }
-    print_context(&current->context);
-    print_context(&proc->context);
+    // print_context(&current->context);
+    // print_context(&proc->context);
     if (proc != current) {
         bool intr_flag;
         struct proc_struct *prev = current, *next = proc;
         local_intr_save(intr_flag);
         {
             current = proc;
-            load_esp0(next->kstack + KSTACKSIZE);
+            // load_esp0(next->kstack + KSTACKSIZE);
             // asm volatile("lw sp, %0" : : "m"(next->context.sp) : "memory");
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
@@ -262,6 +268,7 @@ proc_run(struct proc_struct *proc) {
 //       after switch_to, the current proc will execute here.
 static void
 forkret(void) {
+    cprintf("forkret : current->tf = 0x%08x, aka kstack\n", current->tf);
     forkrets(current->tf);
 }
 
@@ -309,7 +316,8 @@ kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     tf.gpr.s1 = (uintptr_t)arg;
     tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
     tf.epc = (uintptr_t)kernel_thread_entry;
-    return do_fork(clone_flags | CLONE_VM, bootstack, &tf);
+    cprintf("bootstack = 0x%08x, bootstacktop = 0x%08x\n", bootstack, bootstacktop);
+    return do_fork(clone_flags | CLONE_VM, 0, &tf);
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
@@ -409,13 +417,12 @@ copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
     // proc->tf->tf_regs.reg_eax = 0;
     // Set a0 to 0 so a child process knows it's just forked
     proc->tf->gpr.a0 = 0;
+    proc->tf->gpr.sp = (esp == 0) ? proc->kstack : esp;
     // proc->tf->tf_esp = esp;
     // proc->tf->tf_eflags |= FL_IF;
 
     // proc->context.eip = (uintptr_t)forkret;
     // proc->context.esp = (uintptr_t)(proc->tf);
-    // proc->tf->gpr.sp = esp;
-    proc->tf->gpr.sp = proc->kstack + KSTACKSIZE;
     proc->context.ra = (uintptr_t)forkret;
     proc->context.sp = (uintptr_t)(proc->tf);
 }
@@ -479,9 +486,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     if (copy_mm(clone_flags, proc) != 0) {
         goto bad_fork_cleanup_kstack;
     }
-    // copy_thread(proc, stack, tf);
-    // This is the right way in Lab4, I suppose.
-    // But not in Lab 5
     copy_thread(proc, stack, tf);
 
     bool intr_flag;
@@ -496,6 +500,13 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     wakeup_proc(proc);
 
     ret = proc->pid;
+
+    cprintf("do_fork\n");
+    cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
+    cprintf("proc->cr3: 0x%08x\n", proc->cr3);
+    cprintf("proc ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
+    cprintf("\n");
+
 fork_out:
     return ret;
 
@@ -556,7 +567,7 @@ do_exit(int error_code) {
         }
     }
     local_intr_restore(intr_flag);
-
+    cprintf("do_exit\n");
     schedule();
     panic("do_exit will not return!! %d.\n", current->pid);
 }
@@ -749,6 +760,11 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
         goto execve_exit;
     }
     set_proc_name(current, local_name);
+    cprintf("do_execve\n");
+    cprintf("proc name: %s pid: %d\n", current->name, current->pid);
+    cprintf("proc->cr3: 0x%08x\n", current->cr3);
+    cprintf("proc ra = 0x%08x, sp = 0x%08x\n", current->context.ra, current->context.sp);
+    cprintf("\n");
     return 0;
 
 execve_exit:
