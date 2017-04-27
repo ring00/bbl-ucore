@@ -55,6 +55,7 @@ printnum(void (*putch)(int, void*), void *putdat,
 
     // Crashes if num >= base. No idea what going on here
     // Here is a quick fix
+    // update: Stack grows downward and destory the SBI
     // sbi_console_putchar("0123456789abcdef"[mod]);
     // (*(int *)putdat)++;
 }
