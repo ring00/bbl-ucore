@@ -6,7 +6,7 @@
 extern volatile size_t ticks;
 
 void clock_init(void);
-
+void clock_set_next_event(void);
 long SYSTEM_READ_TIMER( void );
 
 

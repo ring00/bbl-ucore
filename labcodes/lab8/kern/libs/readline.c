@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 
 #define BUFSIZE 1024
 static char buf[BUFSIZE];
@@ -29,6 +30,7 @@ readline(const char *prompt) {
     int i = 0, c;
     while (1) {
         c = getchar();
+
         if (c < 0) {
             return NULL;
         }

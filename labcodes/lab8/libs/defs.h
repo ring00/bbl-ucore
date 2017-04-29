@@ -14,6 +14,9 @@
 /* Represents true-or-false values */
 typedef int bool;
 
+#define true (1)
+#define false (0)
+
 /* Explicitly-sized versions of integer types */
 typedef char int8_t;
 typedef unsigned char uint8_t;

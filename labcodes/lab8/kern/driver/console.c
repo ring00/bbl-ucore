@@ -246,9 +246,7 @@ serial_proc_data(void) {
 /* serial_intr - try to feed input characters from serial port */
 void
 serial_intr(void) {
-    if (serial_exists) {
-        cons_intr(serial_proc_data);
-    }
+
 }
 
 /***** Keyboard input code *****/
@@ -401,7 +399,7 @@ kbd_proc_data(void) {
 /* kbd_intr - try to feed input characters from keyboard */
 static void
 kbd_intr(void) {
-    cons_intr(kbd_proc_data);
+
 }
 
 static void
@@ -414,12 +412,7 @@ kbd_init(void) {
 /* cons_init - initializes the console devices */
 void
 cons_init(void) {
-    cga_init();
-    serial_init();
-    kbd_init();
-    if (!serial_exists) {
-        cprintf("serial port does not exist!!\n");
-    }
+
 }
 
 /* cons_putc - print a single character @c to console devices */
@@ -428,9 +421,7 @@ cons_putc(int c) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        lpt_putc(c);
-        cga_putc(c);
-        serial_putc(c);
+        sbi_console_putchar((unsigned char)c);
     }
     local_intr_restore(intr_flag);
 }
@@ -445,19 +436,7 @@ cons_getc(void) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        // poll for any pending input characters,
-        // so that this function works even when interrupts are disabled
-        // (e.g., when called from the kernel monitor).
-        serial_intr();
-        kbd_intr();
-
-        // grab the next character from the input buffer.
-        if (cons.rpos != cons.wpos) {
-            c = cons.buf[cons.rpos ++];
-            if (cons.rpos == CONSBUFSIZE) {
-                cons.rpos = 0;
-            }
-        }
+        c = sbi_console_getchar();
     }
     local_intr_restore(intr_flag);
     return c;

@@ -8,33 +8,16 @@ V       := @
 #USELLVM := 1
 # try to infer the correct GCCPREFX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if i386-ucore-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
-	then echo 'i386-ucore-elf-'; \
-	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
-	then echo ''; \
-	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find an i386-ucore-elf version of GCC/binutils." 1>&2; \
-	echo "*** Is the directory with i386-ucore-elf-gcc in your PATH?" 1>&2; \
-	echo "*** If your i386-ucore-elf toolchain is installed with a command" 1>&2; \
-	echo "*** prefix other than 'i386-ucore-elf-', set your GCCPREFIX" 1>&2; \
-	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
-	echo "*** To turn off this error, run 'gmake GCCPREFIX= ...'." 1>&2; \
-	echo "***" 1>&2; exit 1; fi)
+GCCPREFIX := riscv32-unknown-linux-gnu-
 endif
 
 # try to infer the correct QEMU
 ifndef QEMU
-QEMU := $(shell if which qemu-system-i386 > /dev/null; \
-	then echo 'qemu-system-i386'; exit; \
-	elif which i386-elf-qemu > /dev/null; \
-	then echo 'i386-elf-qemu'; exit; \
-	elif which qemu > /dev/null; \
-	then echo 'qemu'; exit; \
-	else \
-	echo "***" 1>&2; \
-	echo "*** Error: Couldn't find a working QEMU executable." 1>&2; \
-	echo "*** Is the directory containing the qemu binary in your PATH" 1>&2; \
-	echo "***" 1>&2; exit 1; fi)
+QEMU := qemu-system-riscv32
+endif
+
+ifndef SPIKE
+SPIKE := spike
 endif
 
 # eliminate default suffix rules
@@ -44,25 +27,19 @@ endif
 .DELETE_ON_ERROR:
 
 # define compiler and flags
-ifndef  USELLVM
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -Wall -O2
-CC		:= $(GCCPREFIX)gcc
-CFLAGS	:= -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc $(DEFS)
-CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-else
-HOSTCC		:= clang
-HOSTCFLAGS	:= -g -Wall -O2
-CC		:= clang
-CFLAGS	:= -fno-builtin -Wall -g -m32 -mno-sse -nostdinc $(DEFS)
-CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-endif
+HOSTCFLAGS	:= -g -ggdb -Wall -O0
 
 GDB		:= $(GCCPREFIX)gdb
+
+CC		:= $(GCCPREFIX)gcc
+CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused
+CFLAGS	+= -fno-builtin -Wall -ggdb -nostdinc $(DEFS)
+CFLAGS	+= -fno-stack-protector
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
-LDFLAGS	:= -m $(shell $(LD) -V | grep elf_i386 2>/dev/null)
+LDFLAGS	:= -m elf32lriscv
 LDFLAGS	+= -nostdlib
 
 OBJCOPY := $(GCCPREFIX)objcopy
@@ -153,6 +130,79 @@ endef
 $(foreach p,$(call read_packet,uprog),$(eval $(call uprog_ld,$(p))))
 
 # -------------------------------------------------------------------
+
+# create bootblock
+# bootfiles = $(call listf_cc,boot)
+# $(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
+
+# bootblock = $(call totarget,bootblock)
+
+# $(bootblock): $(call toobj,boot/bootasm.S) $(call toobj,$(bootfiles)) | $(call totarget,sign)
+# 	@echo + ld $@
+# 	$(V)$(LD) $(LDFLAGS) -N -T tools/boot.ld $^ -o $(call toobj,bootblock)
+# 	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
+# 	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
+# 	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
+
+# $(call create_target,bootblock)
+
+# -------------------------------------------------------------------
+
+# create 'sign' tools
+# $(call add_files_host,tools/sign.c,sign,sign)
+# $(call create_target_host,sign,sign)
+
+# -------------------------------------------------------------------
+# create 'mksfs' tools
+$(call add_files_host,tools/mksfs.c,mksfs,mksfs)
+$(call create_target_host,mksfs,mksfs)
+
+# -------------------------------------------------------------------
+# create ucore.img
+# UCOREIMG	:= $(call totarget,ucore.img)
+
+# $(UCOREIMG): $(kernel) $(bootblock)
+# 	$(V)dd if=/dev/zero of=$@ count=10000
+# 	$(V)dd if=$(bootblock) of=$@ conv=notrunc
+# 	$(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
+
+# $(call create_target,ucore.img)
+
+# -------------------------------------------------------------------
+
+# create swap.img
+SWAPIMG		:= $(call totarget,swap.img)
+
+$(SWAPIMG):
+	$(V)dd if=/dev/zero of=$@ bs=1M count=1
+
+$(call create_target,swap.img)
+
+# -------------------------------------------------------------------
+# create sfs.img
+SFSIMG		:= $(call totarget,sfs.img)
+SFSBINS		:=
+SFSROOT		:= disk0
+
+define fscopy
+__fs_bin__ := $(2)$(SLASH)$(patsubst $(USER_PREFIX)%,%,$(basename $(notdir $(1))))
+SFSBINS += $$(__fs_bin__)
+$$(__fs_bin__): $(1) | $$$$(dir $@)
+	@$(COPY) $$< $$@
+endef
+
+$(foreach p,$(USER_BINS),$(eval $(call fscopy,$(p),$(SFSROOT)$(SLASH))))
+
+$(SFSROOT):
+	$(V)$(MKDIR) $@
+
+$(SFSIMG): $(SFSROOT) $(SFSBINS) | $(call totarget,mksfs)
+	$(V)dd if=/dev/zero of=$@ bs=1M count=2
+	@$(call totarget,mksfs) $@ $(SFSROOT)
+
+$(call create_target,sfs.img)
+
+# -------------------------------------------------------------------
 # kernel
 
 KINCLUDE	+= kern/debug/ \
@@ -168,7 +218,8 @@ KINCLUDE	+= kern/debug/ \
 			   kern/fs/swap/ \
 			   kern/fs/vfs/ \
 			   kern/fs/devs/ \
-			   kern/fs/sfs/ 
+			   kern/fs/sfs/ \
+			   riscv/
 
 
 KSRCDIR		+= kern/init \
@@ -198,90 +249,13 @@ kernel = $(call totarget,kernel)
 
 $(kernel): tools/kernel.ld
 
-$(kernel): $(KOBJS)
+$(kernel): $(KOBJS) $(SWAPIMG) $(SFSIMG)
 	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS)
+	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS) --format=binary $(SWAPIMG) $(SFSIMG) --format=default
 	@$(OBJDUMP) -S $@ > $(call asmfile,kernel)
 	@$(OBJDUMP) -t $@ | $(SED) '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(call symfile,kernel)
 
 $(call create_target,kernel)
-
-# -------------------------------------------------------------------
-
-# create bootblock
-bootfiles = $(call listf_cc,boot)
-$(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
-
-bootblock = $(call totarget,bootblock)
-
-$(bootblock): $(call toobj,boot/bootasm.S) $(call toobj,$(bootfiles)) | $(call totarget,sign)
-	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -N -T tools/boot.ld $^ -o $(call toobj,bootblock)
-	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
-	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
-	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
-
-$(call create_target,bootblock)
-
-# -------------------------------------------------------------------
-
-# create 'sign' tools
-$(call add_files_host,tools/sign.c,sign,sign)
-$(call create_target_host,sign,sign)
-
-# -------------------------------------------------------------------
-# create 'mksfs' tools
-$(call add_files_host,tools/mksfs.c,mksfs,mksfs)
-$(call create_target_host,mksfs,mksfs)
-
-# -------------------------------------------------------------------
-# create ucore.img
-UCOREIMG	:= $(call totarget,ucore.img)
-
-$(UCOREIMG): $(kernel) $(bootblock)
-	$(V)dd if=/dev/zero of=$@ count=10000
-	$(V)dd if=$(bootblock) of=$@ conv=notrunc
-	$(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
-
-$(call create_target,ucore.img)
-
-# -------------------------------------------------------------------
-
-# create swap.img
-SWAPIMG		:= $(call totarget,swap.img)
-
-$(SWAPIMG):
-	$(V)dd if=/dev/zero of=$@ bs=1M count=128
-
-$(call create_target,swap.img)
-
-# -------------------------------------------------------------------
-# create sfs.img
-SFSIMG		:= $(call totarget,sfs.img)
-SFSBINS		:=
-SFSROOT		:= disk0
-
-define fscopy
-__fs_bin__ := $(2)$(SLASH)$(patsubst $(USER_PREFIX)%,%,$(basename $(notdir $(1))))
-SFSBINS += $$(__fs_bin__)
-$$(__fs_bin__): $(1) | $$$$(dir $@)
-	@$(COPY) $$< $$@
-endef
-
-$(foreach p,$(USER_BINS),$(eval $(call fscopy,$(p),$(SFSROOT)$(SLASH))))
-
-$(SFSROOT):
-	if [ ! -d "$(SFSROOT)" ]; then mkdir $(SFSROOT); fi
-
-$(SFSROOT):
-	$(V)$(MKDIR) $@
-
-$(SFSIMG): $(SFSROOT) $(SFSBINS) | $(call totarget,mksfs)
-	$(V)dd if=/dev/zero of=$@ bs=1M count=128
-	@$(call totarget,mksfs) $@ $(SFSROOT)
-
-$(call create_target,sfs.img)
-
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

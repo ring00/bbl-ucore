@@ -20,7 +20,7 @@ sys_exit(uint32_t arg[]) {
 static int
 sys_fork(uint32_t arg[]) {
     struct trapframe *tf = current->tf;
-    uintptr_t stack = tf->tf_esp;
+    uintptr_t stack = tf->gpr.sp;
     return do_fork(0, stack, tf);
 }
 
@@ -188,15 +188,15 @@ void
 syscall(void) {
     struct trapframe *tf = current->tf;
     uint32_t arg[5];
-    int num = tf->tf_regs.reg_eax;
+    int num = tf->gpr.a0;
     if (num >= 0 && num < NUM_SYSCALLS) {
         if (syscalls[num] != NULL) {
-            arg[0] = tf->tf_regs.reg_edx;
-            arg[1] = tf->tf_regs.reg_ecx;
-            arg[2] = tf->tf_regs.reg_ebx;
-            arg[3] = tf->tf_regs.reg_edi;
-            arg[4] = tf->tf_regs.reg_esi;
-            tf->tf_regs.reg_eax = syscalls[num](arg);
+            arg[0] = tf->gpr.a1;
+            arg[1] = tf->gpr.a2;
+            arg[2] = tf->gpr.a3;
+            arg[3] = tf->gpr.a4;
+            arg[4] = tf->gpr.a5;
+            tf->gpr.a0 = syscalls[num](arg);
             return ;
         }
     }
