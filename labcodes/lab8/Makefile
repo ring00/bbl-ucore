@@ -28,7 +28,7 @@ endif
 
 # define compiler and flags
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -ggdb -Wall -O0
+HOSTCFLAGS	:= -g -ggdb -Wall -O2
 
 GDB		:= $(GCCPREFIX)gdb
 
@@ -218,8 +218,7 @@ KINCLUDE	+= kern/debug/ \
 			   kern/fs/swap/ \
 			   kern/fs/vfs/ \
 			   kern/fs/devs/ \
-			   kern/fs/sfs/ \
-			   riscv/
+			   kern/fs/sfs/
 
 
 KSRCDIR		+= kern/init \

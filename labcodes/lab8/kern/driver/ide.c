@@ -1,20 +1,13 @@
+#include <assert.h>
 #include <defs.h>
-#include <stdio.h>
-#include <trap.h>
-#include <picirq.h>
 #include <fs.h>
 #include <ide.h>
-#include <x86.h>
-#include <assert.h>
 #include <ramdisk.h>
+#include <stdio.h>
 
-static int
-ide_wait_ready(unsigned short iobase, bool check_error) {
-    return 0;
-}
+static int ide_wait_ready(unsigned short iobase, bool check_error) { return 0; }
 
-void
-ide_init(void) {
+void ide_init(void) {
     static_assert((SECTSIZE % 4) == 0);
     for (int ideno = 0; ideno < MAX_IDE; ++ideno) {
         ide_devices[ideno].valid = 0;
@@ -27,13 +20,9 @@ ide_init(void) {
     assert(VALID_IDE(DISK0_DEV_NO));
 }
 
-bool
-ide_device_valid(unsigned short ideno) {
-    return VALID_IDE(ideno);
-}
+bool ide_device_valid(unsigned short ideno) { return VALID_IDE(ideno); }
 
-size_t
-ide_device_size(unsigned short ideno) {
+size_t ide_device_size(unsigned short ideno) {
     if (ide_device_valid(ideno)) {
         return ide_devices[ideno].size;
     }

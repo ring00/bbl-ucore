@@ -7,7 +7,6 @@
 #include <memlayout.h>
 #include <skew_heap.h>
 
-
 // process's state in his life cycle
 enum proc_state {
     PROC_UNINIT = 0,  // uninitialized
