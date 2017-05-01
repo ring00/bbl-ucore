@@ -1,6 +1,6 @@
-# Quick start
+# Quick Start
 
-## 配置开发环境
+## Toolchain Installation
 
 为了编译运行[bbl-ucore](https://github.com/ring00/bbl-ucore)，我们需要先配置RISC-V开发环境。我们已经有一份修改过的[riscv-tools](https://github.com/riscv/riscv-tools)供使用，输入以下命令快速安装工具链
 
@@ -14,14 +14,14 @@ $ ./build-rv32g.sh
 
 详细文档请查看[Installation Manual](https://github.com/ring00/riscv-tools#the-risc-v-gcc-toolchain-installation-manual)
 
-## 编译bbl-ucore
+## Compile and Run bbl-ucore
 
 ```bash
 $ git clone https://github.com/ring00/bbl-ucore.git
 $ git submodule update --init --recursive
 ```
 
-现在我们可以到各个实验目录下执行`make spike`命令来编译并使用[Spike](https://github.com/riscv/riscv-isa-sim/tree/f38dcde0d80d2f4818b8f20067b8de5267c8ade6)模拟器运行实验。若想一次性编译全部实验，请执行
+现在我们可以到各个实验目录下执行`make spike`命令来编译并使用[Spike](https://github.com/riscv/riscv-isa-sim)模拟器运行实验。若想一次性编译全部实验，请执行
 
 ```bash
 $ cd labcodes
