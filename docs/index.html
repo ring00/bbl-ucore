@@ -11,6 +11,9 @@
   <div id="app"></div>
 </body>
 <script>
+  if (typeof navigator.serviceWorker !== 'undefined') {
+    navigator.serviceWorker.register('sw.js')
+  }
   window.$docsify = {
     name: 'bbl-ucore',
     repo: 'https://github.com/ring00/bbl-ucore.git',
