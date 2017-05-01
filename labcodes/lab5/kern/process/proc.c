@@ -226,36 +226,12 @@ void print_context(struct context* context) {
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
 proc_run(struct proc_struct *proc) {
-    bool intr_flag;
-    local_intr_save(intr_flag);
-    {
-        cprintf("\n\n\n");
-        cprintf("current name: %s pid: %d\n", current->name, current->pid);
-        cprintf("current->cr3: 0x%08x\n", current->cr3);
-        cprintf("context ra = 0x%08x, sp = 0x%08x\n", current->context.ra, current->context.sp);
-        cprintf("\n");
-        cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
-        cprintf("proc->cr3: 0x%08x\n", proc->cr3);
-        cprintf("context ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
-        // print_trapframe(proc->tf);
-        cprintf("\n\n\n");
-    }
-    local_intr_restore(intr_flag);
-    // print_trapframe(proc->tf);
-    // if (initproc->tf) {
-        // cprintf("initproc->tf:\n");
-        // print_trapframe(initproc->tf);
-    // }
-    // print_context(&current->context);
-    // print_context(&proc->context);
     if (proc != current) {
         bool intr_flag;
         struct proc_struct *prev = current, *next = proc;
         local_intr_save(intr_flag);
         {
             current = proc;
-            // load_esp0(next->kstack + KSTACKSIZE);
-            // asm volatile("lw sp, %0" : : "m"(next->context.sp) : "memory");
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
         }

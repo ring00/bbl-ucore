@@ -1,4 +1,4 @@
-PROJ	:= challenge
+PROJ	:= lab3
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
@@ -164,14 +164,12 @@ $(call create_target,kernel)
 # -------------------------------------------------------------------
 
 # create ucore.img
-# UCOREIMG	:= $(call totarget,ucore.img)
+UCOREIMG	:= $(call totarget,ucore.img)
 
-# $(UCOREIMG): $(kernel) $(bootblock)
-	# $(V)dd if=/dev/zero of=$@ count=10000
-	# $(V)dd if=$(bootblock) of=$@ conv=notrunc
-	# $(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
+$(UCOREIMG): $(kernel)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
-# $(call create_target,ucore.img)
+$(call create_target,ucore.img)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -194,29 +192,12 @@ TARGETS: $(TARGETS)
 
 .DEFAULT_GOAL := TARGETS
 
-.PHONY: qemu qemu-nox debug debug-nox spike
-spike: $(kernel)
-	$(V)$(SPIKE) $< -m 512
-qemu: $(kernel)
-	$(V)$(QEMU) -nographic -kernel $< -m 512
-qemu-mon: $(UCOREIMG)
-	$(V)$(QEMU)  -no-reboot -monitor stdio -hda $< -serial null
-# qemu: $(UCOREIMG)
-# 	$(V)$(QEMU) -no-reboot -parallel stdio -hda $< -serial null
-log: $(UCOREIMG)
-	$(V)$(QEMU) -no-reboot -d int,cpu_reset  -D q.log -parallel stdio -hda $< -serial null
-qemu-nox: $(UCOREIMG)
-	$(V)$(QEMU)   -no-reboot -serial mon:stdio -hda $< -nographic
-TERMINAL        :=gnome-terminal
-debug: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -parallel stdio -hda $< -serial null &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "gdb -q -tui -x tools/gdbinit"
-	
-debug-nox: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -serial mon:stdio -hda $< -nographic &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "gdb -q -x tools/gdbinit"
+.PHONY: qemu spike
+qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+	$(V)$(QEMU) -kernel $(UCOREIMG) -nographic
+
+spike: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+	$(V)$(SPIKE) $(UCOREIMG)
 
 .PHONY: grade touch
 

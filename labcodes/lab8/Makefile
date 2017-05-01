@@ -1,4 +1,4 @@
-PROJ	:= 8
+PROJ	:= lab8
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
@@ -158,18 +158,6 @@ $(call add_files_host,tools/mksfs.c,mksfs,mksfs)
 $(call create_target_host,mksfs,mksfs)
 
 # -------------------------------------------------------------------
-# create ucore.img
-# UCOREIMG	:= $(call totarget,ucore.img)
-
-# $(UCOREIMG): $(kernel) $(bootblock)
-# 	$(V)dd if=/dev/zero of=$@ count=10000
-# 	$(V)dd if=$(bootblock) of=$@ conv=notrunc
-# 	$(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
-
-# $(call create_target,ucore.img)
-
-# -------------------------------------------------------------------
-
 # create swap.img
 SWAPIMG		:= $(call totarget,swap.img)
 
@@ -256,6 +244,15 @@ $(kernel): $(KOBJS) $(SWAPIMG) $(SFSIMG)
 
 $(call create_target,kernel)
 
+# -------------------------------------------------------------------
+# create ucore.img
+UCOREIMG	:= $(call totarget,ucore.img)
+
+$(UCOREIMG): $(kernel)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
+
+$(call create_target,ucore.img)
+
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 $(call finish_all)
@@ -283,35 +280,20 @@ TARGETS: $(TARGETS)
 
 QEMUOPTS = -hda $(UCOREIMG) -drive file=$(SWAPIMG),media=disk,cache=writeback -drive file=$(SFSIMG),media=disk,cache=writeback 
 
-.PHONY: qemu qemu-nox debug debug-nox monitor
-qemu-mon: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-	$(V)$(QEMU)  -no-reboot -monitor stdio $(QEMUOPTS) -serial null
+.PHONY: qemu spike
 qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-	$(V)$(QEMU)  -no-reboot -parallel stdio $(QEMUOPTS) -serial null
+	$(V)$(QEMU) -kernel $(UCOREIMG) -nographic
 
-qemu-nox: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-	$(V)$(QEMU)  -no-reboot -serial mon:stdio $(QEMUOPTS) -nographic
-
-monitor: $(UCOREIMG) $(SWAPING) $(SFSIMG)
-	$(V)$(QEMU)  -no-reboot  -monitor stdio $(QEMUOPTS) -serial null
+spike: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+	$(V)$(SPIKE) $(UCOREIMG)
 
 TERMINAL := gnome-terminal
-
-debug: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-	$(V)$(QEMU) -S -s -parallel stdio $(QEMUOPTS) -serial null &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
-
-debug-nox: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-	$(V)$(QEMU) -S -s -serial mon:stdio $(QEMUOPTS) -nographic &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
 
 RUN_PREFIX	:= _binary_$(OBJDIR)_$(USER_PREFIX)
 MAKEOPTS	:= --quiet --no-print-directory
 
 run-%: build-%
-	$(V)$(QEMU) -parallel stdio $(QEMUOPTS) -serial null
+	$(V)$(SPIKE) $(UCOREIMG)
 
 sh-%: script-%
 	$(V)$(QEMU) -parallel stdio $(QEMUOPTS) -serial null

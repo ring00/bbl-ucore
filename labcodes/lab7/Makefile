@@ -1,4 +1,4 @@
-PROJ	:= 6
+PROJ	:= lab7
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
@@ -201,14 +201,12 @@ $(call create_target,kernel)
 # -------------------------------------------------------------------
 
 # create ucore.img
-# UCOREIMG	:= $(call totarget,ucore.img)
+UCOREIMG	:= $(call totarget,ucore.img)
 
-# $(UCOREIMG): $(kernel) $(bootblock)
-# 	$(V)dd if=/dev/zero of=$@ count=10000
-# 	$(V)dd if=$(bootblock) of=$@ conv=notrunc
-# 	$(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
+$(UCOREIMG): $(kernel)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
-# $(call create_target,ucore.img)
+$(call create_target,ucore.img)
 
 # -------------------------------------------------------------------
 
@@ -245,32 +243,18 @@ TARGETS: $(TARGETS)
 
 QEMUOPTS = -hda $(UCOREIMG) -drive file=$(SWAPIMG),media=disk,cache=writeback
 
-.PHONY: qemu qemu-nox debug debug-nox
-qemu-mon: $(UCOREIMG) $(SWAPIMG)
-	$(V)$(QEMU)  -no-reboot -monitor stdio $(QEMUOPTS) -serial null
-qemu: $(UCOREIMG) $(SWAPIMG)
-	$(V)$(QEMU)  -no-reboot -parallel stdio $(QEMUOPTS) -serial null
+.PHONY: qemu spike
+qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+	$(V)$(QEMU) -kernel $(UCOREIMG) -nographic
 
-qemu-nox: $(UCOREIMG) $(SWAPIMG)
-	$(V)$(QEMU)  -no-reboot -serial mon:stdio $(QEMUOPTS) -nographic
-
-TERMINAL := gnome-terminal
-
-debug: $(UCOREIMG) $(SWAPIMG)
-	$(V)$(QEMU) -S -s -parallel stdio $(QEMUOPTS) -serial null &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
-
-debug-nox: $(UCOREIMG) $(SWAPIMG)
-	$(V)$(QEMU) -S -s -serial mon:stdio $(QEMUOPTS) -nographic &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
+spike: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+	$(V)$(SPIKE) $(UCOREIMG)
 
 RUN_PREFIX	:= _binary_$(OBJDIR)_$(USER_PREFIX)
 MAKEOPTS	:= --quiet --no-print-directory
 
 run-%: build-%
-	$(V)$(QEMU) -parallel stdio $(QEMUOPTS) -serial null
+	$(V)$(SPIKE) $(UCOREIMG)
 
 run-nox-%: build-%
 	$(V)$(QEMU) -serial mon:stdio $(QEMUOPTS) -nographic

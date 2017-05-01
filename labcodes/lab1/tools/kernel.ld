@@ -2,7 +2,7 @@
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(reset_vector)
+ENTRY(_entry)
 
 SECTIONS
 {
@@ -11,7 +11,7 @@ SECTIONS
   	/*--------------------------------------------------------------------*/
 
   	/* Begining of code and text segment */
-  	. = 0x80000000;
+  	. = 0xC0000000;
   	_ftext = .;
 
   	.text :
@@ -39,16 +39,6 @@ SECTIONS
   	/* End of code and read-only segment */
   	PROVIDE(etext = .);
   	_etext = .;
-
-  	/*--------------------------------------------------------------------*/
-  	/* HTIF, isolated onto separate page                                  */
-  	/*--------------------------------------------------------------------*/
-  	. = ALIGN(0x1000);
-  	htif :
-  	{
-    	*(htif)
-  	}
-  	. = ALIGN(0x1000);
 
   	/*--------------------------------------------------------------------*/
   	/* Include debugging information in kernel memory                     */
