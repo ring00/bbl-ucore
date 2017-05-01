@@ -91,7 +91,7 @@ RISC-V中各个特权级都有单独的Control and Status Registers (CSRs)，其
 
 在继续阅读前，读者应当查阅[Privileged Spec 1.9.1](https://riscv.org/specifications/privileged-isa)以熟悉以上CSR的功能和用途。
 
-####　CSR Instructions
+#### CSR Instructions
 
 RISC-V ISA中提供了一些修改CSR的原子操作，下面介绍之后常用到的`csrrw`指令
 
