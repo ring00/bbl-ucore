@@ -287,7 +287,7 @@ ret
 
 所有的SBI都应该是如此实现的，但一个更合乎逻辑的Binary Interface应当是这样的——"欲使用SEE提供的console putchar功能，请将想要输出的字符放入寄存器a0，将寄存器a7置为1，并使用ecall指令"。如果上述理由不足以说服你，那么请看下面这个x86汇编程序
 
-```assembly
+```nasm
 section .programFlow
     global _start
     _start:
