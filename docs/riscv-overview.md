@@ -102,7 +102,7 @@ cssrw rd, csr, rs
 
 语义上等价的C++函数如下
 
-```c++
+```cpp
 void cssrw(unsigned int& rd, unsigned int& csr, unsigned int& rs) {
   unsigned int tmp = rs;
   rd = csr;

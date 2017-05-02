@@ -1,9 +1,7 @@
-<!-- docs/_sidebar.md -->
-
-- [Home](/)
 - Getting Started
   - [Quick Start](quickstart.md)
   - [RISC-V Overview](riscv-overview.md)
+  - [Toolchain Overview](toolchain-overview.md)
 - [Lab 1](lab1.md)
 - [Lab 2](lab2.md)
 - [Lab 3](lab3.md)
