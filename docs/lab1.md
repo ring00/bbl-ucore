@@ -18,7 +18,7 @@ $ make
 
 `payload.S`如下
 
-```assembly
+```nasm
 .section ".payload","a",@progbits
 .align 3
 
@@ -223,7 +223,7 @@ unsigned long sbi_unmask_interrupt(unsigned long which);
 #endif
 ```
 
-```assembly
+```nasm
 .globl sbi_hart_id; sbi_hart_id = -2048
 .globl sbi_num_harts; sbi_num_harts = -2032
 .globl sbi_query_memory; sbi_query_memory = -2016
@@ -277,7 +277,7 @@ unsigned long sbi_query_memory(unsigned long id, memory_block_info *p);
 
 第二个问题并不如第一个显然。考虑一下，既然SBI是Supervisor对SEE进行“系统”调用的过程，期间必然会发生特权级从S到M的转换，RISC-V中只有一条指令能完成这种转换——`ecall`。我们不妨来看一看`sbi_console_putchar`的实现
 
-```assembly
+```nasm
 # console_putchar
 .align 4
 li a7, MCALL_CONSOLE_PUTCHAR # MCALL_CONSOLE_PUTCHAR == 1
@@ -316,7 +316,7 @@ unsigned long sbi_query_memory(unsigned long id, memory_block_info *p);
 
 前面已经说过，这个函数不可能被实现，可它确确实实在BBL中被“实现”了，读者可以参阅`machine/sbi_entry.S`和`machine/sbi_impl.c`
 
-```assembly
+```nasm
 # query_memory
 .align 4
 tail __sbi_query_memory
@@ -495,7 +495,7 @@ asm volatile("rdtime a0")；
 
 由于`rdtime`指令未被实现，执行这一句时会引发`Illegal instruction exception`，被bbl的trap handler捕捉
 
-```assembly
+```nasm
 trap_table:
   .word bad_trap
   .word bad_trap

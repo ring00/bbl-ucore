@@ -1,6 +1,6 @@
 # bbl-ucore
 
-> A RISC-V ucore port.
+> A RISC-V uCore port.
 
 ## What is it
 

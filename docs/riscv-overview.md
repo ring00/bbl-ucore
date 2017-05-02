@@ -95,7 +95,7 @@ RISC-V中各个特权级都有单独的Control and Status Registers (CSRs)，其
 
 RISC-V ISA中提供了一些修改CSR的原子操作，下面介绍之后常用到的`csrrw`指令
 
-```assembly
+```nasm
 # Atomic Read & Write Bit
 cssrw rd, csr, rs
 ```
@@ -112,7 +112,7 @@ void cssrw(unsigned int& rd, unsigned int& csr, unsigned int& rs) {
 
 几种有趣的用法如下
 
-```assembly
+```nasm
 # csr = rs
 cssrw x0, csr, rs
 
