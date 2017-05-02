@@ -2,9 +2,12 @@
 
 lab 1的移植中，主要改动有以下几点
 
-* I/O函数: `kern/driver/console.c`
-* 中断处理例程: `kern/trap/`
-* 时钟中断设置: `kern/driver/clock.c`
+* I/O函数
+  - `kern/driver/console.c`
+* 中断处理例程
+  - `kern/trap/`
+* 时钟中断设置
+  - `kern/driver/clock.c`
 
 其中对中断处理例程和时钟中断做了较大改动
 
