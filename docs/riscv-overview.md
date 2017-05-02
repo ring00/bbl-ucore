@@ -28,7 +28,7 @@ RISC-V ISA是模块化的，它由一个基本指令集和一些扩展指令集�
 
 RISC-V在设计时就考虑了虚拟化的需求，三种典型RISC-V系统的结构如下
 
-![software-stacks](imgs/software-stacks.png)
+![software-stacks](_images/software-stacks.png)
 
 上图中各个英文缩写对应的全称如下
 
