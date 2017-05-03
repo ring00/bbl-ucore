@@ -89,7 +89,7 @@ void kmonitor(struct trapframe *tf) {
     }
 
     char *buf;
-    // sbi_shutdown();
+    sbi_shutdown();
     while (1) {
         if ((buf = readline("K> ")) != NULL) {
             if (runcmd(buf, tf) < 0) {

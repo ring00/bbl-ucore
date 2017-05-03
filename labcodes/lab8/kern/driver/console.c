@@ -33,6 +33,5 @@ int cons_getc(void) {
         c = sbi_console_getchar();
     }
     local_intr_restore(intr_flag);
-    if (c > 0) cons_putc(c);
-    return 100;
+    return c;
 }
