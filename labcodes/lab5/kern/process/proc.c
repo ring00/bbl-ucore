@@ -205,23 +205,6 @@ get_pid(void) {
     return last_pid;
 }
 
-void print_context(struct context* context) {
-    cprintf("ra = 0x%08x\n", context->ra);
-    cprintf("sp = 0x%08x\n\n", context->sp);
-    // cprintf("s0 = 0x%08x\n", context->s0);
-    // cprintf("s1 = 0x%08x\n", context->s1);
-    // cprintf("s2 = 0x%08x\n", context->s2);
-    // cprintf("s3 = 0x%08x\n", context->s3);
-    // cprintf("s4 = 0x%08x\n", context->s4);
-    // cprintf("s5 = 0x%08x\n", context->s5);
-    // cprintf("s6 = 0x%08x\n", context->s6);
-    // cprintf("s7 = 0x%08x\n", context->s7);
-    // cprintf("s8 = 0x%08x\n", context->s8);
-    // cprintf("s9 = 0x%08x\n", context->s9);
-    // cprintf("s10 = 0x%08x\n", context->s10);
-    // cprintf("s11 = 0x%08x\n", context->s11);
-}
-
 // proc_run - make process "proc" running on cpu
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
@@ -244,7 +227,6 @@ proc_run(struct proc_struct *proc) {
 //       after switch_to, the current proc will execute here.
 static void
 forkret(void) {
-    cprintf("forkret : current->tf = 0x%08x, aka kstack\n", current->tf);
     forkrets(current->tf);
 }
 
@@ -476,13 +458,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     wakeup_proc(proc);
 
     ret = proc->pid;
-
-    cprintf("do_fork\n");
-    cprintf("proc name: %s pid: %d\n", proc->name, proc->pid);
-    cprintf("proc->cr3: 0x%08x\n", proc->cr3);
-    cprintf("proc ra = 0x%08x, sp = 0x%08x\n", proc->context.ra, proc->context.sp);
-    cprintf("\n");
-
 fork_out:
     return ret;
 
@@ -543,7 +518,6 @@ do_exit(int error_code) {
         }
     }
     local_intr_restore(intr_flag);
-    cprintf("do_exit\n");
     schedule();
     panic("do_exit will not return!! %d.\n", current->pid);
 }

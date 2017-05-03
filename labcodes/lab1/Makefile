@@ -115,8 +115,7 @@ KSRCDIR		+= kern/init \
 			   kern/debug \
 			   kern/driver \
 			   kern/trap \
-			   kern/mm \
-			   boot/src
+			   kern/mm
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 
