@@ -1,10 +1,10 @@
 # bbl-ucore
 
-> A RISC-V uCore port.
+> A 32-bit teaching Operating System on RISC-V.
 
 ## What is it
 
-[bbl-ucore](https://github.com/ring00/bbl-ucore)是[ucore_os_lab](https://github.com/chyyuu/ucore_os_lab)的RISC-V移植。
+[bbl-ucore](https://github.com/ring00/bbl-ucore)是清华大学计算机系本科操作系统课程的教学操作系统[ucore_os_lab](https://github.com/chyyuu/ucore_os_lab)在RISC-V架构上的移植。
 
 ## References
 

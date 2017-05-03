@@ -6,6 +6,7 @@ lab 2的移植中，主要改动如下
   * `kern/driver/ide.c`
 * 缺页中断的处理
   * `kern/trap/trap.c`
+  * `kern/mm/vmm.c`
 
 ## Faking a Swap
 
@@ -131,3 +132,4 @@ failed:
 }
 ```
 
+由于有了物理内存管理后，虚拟内存管理与硬件关系不是非常密切，所以这个lab的移植较为简单。
