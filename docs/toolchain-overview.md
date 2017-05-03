@@ -169,7 +169,7 @@ SECTIONS
 }
 ```
 
-CPU加电后执行`0x00001000`处的首条指令，通过` auipc`跳转到`0x80000000`开始执行bbl的启动代码。可以看见bbl的入口为`reset_vector`，该符号位于`machine/mentry.S`中。Linker script中还需要注意的有`htif`、`.sbi`和`.payload`三个部分，它们分别位于`machine.mtrap.c`、`sbi_entry.S`和`bbl/payload.S`中。
+CPU加电后执行`0x00001000`处的首条指令，通过` auipc`跳转到`0x80000000`开始执行bbl的启动代码。可以看见bbl的入口为`reset_vector`，该符号位于`machine/mentry.S`中。Linker script中还需要注意的有`htif`、`.sbi`和`.payload`三个部分，它们分别位于`machine/mtrap.c`、`sbi_entry.S`和`bbl/payload.S`中。
 
 ### Loading Kernel
 
@@ -201,7 +201,7 @@ void boot_loader()
 * Mbare: Physical Addresses
 * Sv32: Page-Based 32-bit Virtual-Memory Systems
 
-默认情况下使用的是Mbare模式，若想启用Sv32模式，需要向`mstatus`寄存器中的VM域写入`00100`，此时若处于S-mode，系统会自动使用页式寻址。要注意的有三点
+默认情况下使用的是Mbare模式，若想启用Sv32模式，需要向`mstatus`寄存器中的VM域写入`00100`，此时若进入S-mode，系统会自动使用页式寻址。要注意的有三点
 
 - M-mode下使用的始终是Mbare内存管理
 - `mstatus`是M-mode特有的寄存器，S-mode下的`sstatus`寄存器中无VM域，若读者对此处突然提到`sstatus`感到疑惑，建议阅读[Privileged ISA Specification v1.9.1](https://riscv.org/specifications/privileged-isa) 3.1.6小节
@@ -294,7 +294,7 @@ unsigned long sbi_unmask_interrupt(unsigned long which);
 unsigned long sbi_query_memory(unsigned long id, memory_block_info *p);
 ```
 
-这个SBI函数不可能被实现，因为它涉及到了传递地址的过程，而我们之前已经提到，M-mode永远工作在Mbare模式下，传一个32位虚拟地址给SEE毫无意义，因为SEE看到的直接就是物理地址。这样，我们发现了SBI的第一个问题
+这个SBI函数不可能被实现，因为它涉及到了传递地址的过程，而我们之前已经提到，M-mode永远工作在Mbare模式下。从kernel中传一个32位虚拟地址给SEE毫无意义，因为SEE只能看到物理地址。这样，我们发现了SBI的第一个问题
 
 * SBI只能传值而不能传引用
 
