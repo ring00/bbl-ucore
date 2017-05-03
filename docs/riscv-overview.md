@@ -43,7 +43,7 @@ RISC-V通过各层之间的Binary Interface实现了对下一层的抽象，方�
 
 ### Privilege Levels
 
-RISC-V共有4种不同的特权级，与x86不同的是，RISC-V中特权级对应数字越小，权限越高
+RISC-V共有4种不同的特权级，与x86不同的是，RISC-V中特权级对应数字越小，权限越低
 
 | Level | Encoding |       Name       | Abbreviation |
 | :---: | :------: | :--------------: | :----------: |
