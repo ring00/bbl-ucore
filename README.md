@@ -6,7 +6,7 @@ bbl-ucore is a porting of [ucore_os_lab](https://github.com/chyyuu/ucore_os_lab.
 
 ## Installing riscv-tools
 
-You'll need a forked verison of [riscv-tools](https://github.com/riscv/riscv-tools.git) to build the toolchain for RV32. Excute the following commands to get started quickly.
+You'll need a forked verison of [riscv-tools](https://github.com/ring00/riscv-tools) to build the toolchain for RV32. Excute the following commands to get started quickly.
 
 ```bash
 $ sudo apt-get install autoconf automake autotools-dev curl libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev
