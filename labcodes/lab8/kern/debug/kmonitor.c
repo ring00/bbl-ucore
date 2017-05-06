@@ -78,8 +78,11 @@ static int runcmd(char *buf, struct trapframe *tf) {
     return 0;
 }
 
-/***** Implementations of basic kernel monitor commands *****/
-
+/**
+ * @brief      Implementations of basic kernel monitor commands
+ *
+ * @param      tf    trapframe
+ */
 void kmonitor(struct trapframe *tf) {
     cprintf("Welcome to the kernel debug monitor!!\n");
     cprintf("Type 'help' for a list of commands.\n");

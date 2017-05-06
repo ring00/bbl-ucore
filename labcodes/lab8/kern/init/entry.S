@@ -10,7 +10,7 @@ kern_entry:
 
 .section .data
 	# .align 2^12
-	.align 12
+	.align PGSHIFT
     .global bootstack
 bootstack:
     .space KSTACKSIZE

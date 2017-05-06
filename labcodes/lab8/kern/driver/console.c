@@ -1,5 +1,6 @@
 #include <sbi.h>
 #include <sync.h>
+#include <console.h>
 
 /* kbd_intr - try to feed input characters from keyboard */
 void kbd_intr(void) {}
@@ -24,7 +25,6 @@ void cons_putc(int c) {
  * cons_getc - return the next input character from console,
  * or 0 if none waiting.
  * */
-#include <assert.h>
 int cons_getc(void) {
     int c = 0;
     bool intr_flag;

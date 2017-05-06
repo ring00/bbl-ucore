@@ -4,14 +4,11 @@ SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
 
 V       := @
-#need llvm/cang-3.5+
-#USELLVM := 1
-# try to infer the correct GCCPREFX
+
 ifndef GCCPREFIX
 GCCPREFIX := riscv32-unknown-linux-gnu-
 endif
 
-# try to infer the correct QEMU
 ifndef QEMU
 QEMU := qemu-system-riscv32
 endif
