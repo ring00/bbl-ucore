@@ -1,125 +1,62 @@
-/* Simple linker script for the JOS kernel.
+/* Simple linker script for the ucore kernel.
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(_entry)
+ENTRY(kern_entry)
+
+BASE_ADDRESS = 0xC0000000;
 
 SECTIONS
 {
-  	/*--------------------------------------------------------------------*/
-  	/* Code and read-only segment                                         */
-  	/*--------------------------------------------------------------------*/
+    /* Load the kernel at this address: "." means the current address */
+    . = BASE_ADDRESS;
 
-  	/* Begining of code and text segment */
-  	. = 0xC0000000;
-  	_ftext = .;
+    .text : {
+        *(.text.kern_entry .text .stub .text.* .gnu.linkonce.t.*)
+    }
 
-  	.text :
-  	{
-    	*(.text.init)
-  	}
+    PROVIDE(etext = .); /* Define the 'etext' symbol to this value */
 
-  	/* text: Program code section */
-  	.text : 
-  	{
-    	*(.text)
-    	*(.text.*)
-    	*(.gnu.linkonce.t.*)
-  	}
+    .rodata : {
+        *(.rodata .rodata.* .gnu.linkonce.r.*)
+    }
 
-  	/* rodata: Read-only data */
-  	.rodata : 
-  	{
-    	*(.rdata)
-    	*(.rodata)
-    	*(.rodata.*)
-    	*(.gnu.linkonce.r.*)
-  	}
+    /* Include debugging information in kernel memory */
+    .stab : {
+        PROVIDE(__STAB_BEGIN__ = .);
+        *(.stab);
+        PROVIDE(__STAB_END__ = .);
+        BYTE(0)     /* Force the linker to allocate space
+                   for this section */
+    }
 
-  	/* End of code and read-only segment */
-  	PROVIDE(etext = .);
-  	_etext = .;
+    .stabstr : {
+        PROVIDE(__STABSTR_BEGIN__ = .);
+        *(.stabstr);
+        PROVIDE(__STABSTR_END__ = .);
+        BYTE(0)     /* Force the linker to allocate space
+                   for this section */
+    }
 
-  	/*--------------------------------------------------------------------*/
-  	/* Include debugging information in kernel memory                     */
-  	/*--------------------------------------------------------------------*/
-	.stab : {
-		PROVIDE(__STAB_BEGIN__ = .);
-		*(.stab);
-		PROVIDE(__STAB_END__ = .);
-		BYTE(0) /* Force the linker to allocate space for this section */
-	}
+    /* Adjust the address for the data segment to the next page */
+    . = ALIGN(0x1000);
 
-	.stabstr : {
-		PROVIDE(__STABSTR_BEGIN__ = .);
-		*(.stabstr);
-		PROVIDE(__STABSTR_END__ = .);
-		BYTE(0) /* Force the linker to allocate space for this section */
-	}
+    /* The data segment */
+    .data : {
+        *(.data)
+    }
 
-  	/*--------------------------------------------------------------------*/
-  	/* Initialized data segment                                           */
-  	/*--------------------------------------------------------------------*/
+    PROVIDE(edata = .);
 
-  	/* Start of initialized data segment */
-  	. = ALIGN(0x1000);
-   	_fdata = .;
+    .bss : {
+        *(.bss)
+    }
 
-  	/* data: Writable data */
-  	.data : 
-  	{
-    	*(.data)
-    	*(.data.*)
-    	*(.srodata*)
-    	*(.gnu.linkonce.d.*)
-    	*(.comment)
-  	}
+    PROVIDE(end = .);
 
-  	/* End of initialized data segment */
-  	. = ALIGN(4);
-  	PROVIDE(edata = .);
-  	_edata = .;
+    
 
-  	/*--------------------------------------------------------------------*/
-  	/* Uninitialized data segment                                         */
-  	/*--------------------------------------------------------------------*/
-
-  	/* Start of uninitialized data segment */
-  	. = .;
-  	_fbss = .;
-
-  	/* sbss: Uninitialized writeable small data section */
-  	. = .;
-
-  	/* bss: Uninitialized writeable data section */
-  	. = .;
-  	_bss_start = .;
-  	.bss : 
-  	{
-    	*(.bss)
-    	*(.bss.*)
-    	*(.sbss*)
-    	*(.gnu.linkonce.b.*)
-    	*(COMMON)
-  	}
-  	PROVIDE(ebss = .);
-
-  	.sbi :
-  	{
-    	*(.sbi)
- 	}
-
-/* 	_estack = .;
-	. += 0x1000;
-	. = ALIGN(16);
-	_stack = .;*/
-
- 	estack = .;
-    . += 0x1000;
-	. = ALIGN(16);
-	stack = .;
-
-	PROVIDE(end = .);
-  	_end = .;
+    /DISCARD/ : {
+        *(.eh_frame .note.GNU-stack)
+    }
 }
-
