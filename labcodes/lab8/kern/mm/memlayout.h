@@ -85,20 +85,6 @@ typedef uintptr_t pte_t;
 typedef uintptr_t pde_t;
 typedef pte_t swap_entry_t; //the pte can also be a swap entry
 
-// some constants for bios interrupt 15h AX = 0xE820
-#define E820MAX             20      // number of entries in E820MAP
-#define E820_ARM            1       // address range memory
-#define E820_ARR            2       // address range reserved
-
-struct e820map {
-    int nr_map;
-    struct {
-        uint64_t addr;
-        uint64_t size;
-        uint32_t type;
-    } __attribute__((packed)) map[E820MAX];
-};
-
 /* *
  * struct Page - Page descriptor structures. Each Page describes one
  * physical page. In kern/mm/pmm.h, you can find lots of useful functions

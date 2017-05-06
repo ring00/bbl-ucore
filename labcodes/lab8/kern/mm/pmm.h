@@ -91,9 +91,10 @@ void print_pgdir(void);
 
 extern struct Page *pages;
 extern size_t npage;
+extern const size_t nbase;
 extern uint32_t va_pa_offset;
 
-static inline ppn_t page2ppn(struct Page *page) { return page - pages; }
+static inline ppn_t page2ppn(struct Page *page) { return page - pages + nbase; }
 
 static inline uintptr_t page2pa(struct Page *page) {
     return page2ppn(page) << PGSHIFT;
@@ -103,7 +104,7 @@ static inline struct Page *pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
-    return &pages[PPN(pa)];
+    return &pages[PPN(pa) - nbase];
 }
 
 static inline void *page2kva(struct Page *page) { return KADDR(page2pa(page)); }

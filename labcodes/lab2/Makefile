@@ -4,14 +4,11 @@ SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
 
 V       := @
-#need llvm/cang-3.5+
-#USELLVM := 1
-# try to infer the correct GCCPREFX
+
 ifndef GCCPREFIX
 GCCPREFIX := riscv32-unknown-linux-gnu-
 endif
 
-# try to infer the correct QEMU
 ifndef QEMU
 QEMU := qemu-system-riscv32
 endif
@@ -27,26 +24,21 @@ endif
 .DELETE_ON_ERROR:
 
 # define compiler and flags
-ifndef  USELLVM
+# define compiler and flags
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -Wall -O2
-CC		:= $(GCCPREFIX)gcc
-CFLAGS  := -mcmodel=medany -D__NO_INLINE__ -std=gnu99 -Wno-unused -fno-delete-null-pointer-checks
-CFLAGS	:= -fno-builtin -Wall -g -nostdinc $(CFLAGS)
-CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-else
-HOSTCC		:= clang
-HOSTCFLAGS	:= -g -Wall -O0
-CC		:= clang
-CFLAGS  := -mcmodel=medany -D__NO_INLINE__ -std=gnu99
-CFLAGS	:= -fno-builtin -Wall -g -mno-sse -nostdinc $(CFLAGS)
-CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-endif
+HOSTCFLAGS	:= -Wall -Os
 
+GDB		:= $(GCCPREFIX)gdb
+
+CC		:= $(GCCPREFIX)gcc
+CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused
+CFLAGS	+= -fno-builtin -Wall -Os -nostdinc $(DEFS)
+CFLAGS	+= -fno-stack-protector
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
-LDFLAGS	+= -nostartfiles -nostdlib -static
+LDFLAGS	:= -m elf32lriscv
+LDFLAGS	+= -nostdlib
 
 OBJCOPY := $(GCCPREFIX)objcopy
 OBJDUMP := $(GCCPREFIX)objdump
@@ -108,8 +100,7 @@ KINCLUDE	+= kern/debug/ \
 			   kern/trap/ \
 			   kern/mm/ \
 			   kern/arch/ \
-			   kern/sync/ \
-			   riscv/
+			   kern/sync/
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
@@ -139,34 +130,11 @@ $(call create_target,kernel)
 
 # -------------------------------------------------------------------
 
-# create bootblock
-# bootfiles = $(call listf_cc,boot)
-# $(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
-
-# bootblock = $(call totarget,bootblock)
-
-# $(bootblock): $(call toobj,$(bootfiles)) | $(call totarget,sign)
-# 	@echo + ld $@
-# 	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 $^ -o $(call toobj,bootblock)
-# 	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
-# 	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
-# 	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
-
-# $(call create_target,bootblock)
-
-# -------------------------------------------------------------------
-
-# create 'sign' tools
-# $(call add_files_host,tools/sign.c,sign,sign)
-# $(call create_target_host,sign,sign)
-
-# -------------------------------------------------------------------
-
 # create ucore.img
 UCOREIMG	:= $(call totarget,ucore.img)
 
 $(UCOREIMG): $(kernel)
-	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) --disable-fp-emulation && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
 $(call create_target,ucore.img)
 

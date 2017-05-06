@@ -19,6 +19,8 @@ struct Page *pages;
 size_t npage = 0;
 // The kernel image is mapped at VA=KERNBASE and PA=info.base
 uint32_t va_pa_offset;
+// memory starts at 0x80000000 in RISC-V
+const size_t nbase = DRAM_BASE / PGSIZE;
 
 // virtual address of boot-time page directory
 pde_t *boot_pgdir = NULL;
@@ -123,8 +125,6 @@ static void page_init(void) {
     cprintf("physcial memory map:\n");
     cprintf("  memory: 0x%08lx, [0x%08lx, 0x%08lx].\n", mem_size, mem_begin,
             mem_end - 1);
-    cprintf("  memory: %ldMB, [%ldMB, %ldMB).\n", mem_size >> 20,
-            mem_begin >> 20, mem_end >> 20);
 
     uint64_t maxpa = mem_end;
 
@@ -140,11 +140,11 @@ static void page_init(void) {
     // so stay away from it by adding extra offset to end
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
-    for (size_t i = 0; i < npage; i++) {
+    for (size_t i = 0; i < npage - nbase; i++) {
         SetPageReserved(pages + i);
     }
 
-    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
+    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * (npage - nbase));
 
     mem_begin = ROUNDUP(freemem, PGSIZE);
     mem_end = ROUNDDOWN(mem_end, PGSIZE);
@@ -154,7 +154,7 @@ static void page_init(void) {
 }
 
 static void enable_paging(void) {
-    // turn on paging
+    // set page table
     lcr3(boot_cr3);
 }
 

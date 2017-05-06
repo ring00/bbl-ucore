@@ -1,6 +1,10 @@
 #ifndef __KERN_MM_MMU_H__
 #define __KERN_MM_MMU_H__
 
+#ifndef __ASSEMBLER__
+#include <defs.h>
+#endif
+
 // A linear address 'la' has a three-part structure as follows:
 //
 // +--------10------+-------10-------+---------12----------+

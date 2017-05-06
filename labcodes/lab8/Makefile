@@ -25,13 +25,13 @@ endif
 
 # define compiler and flags
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -ggdb -Wall -O2
+HOSTCFLAGS	:= -Wall -O2
 
 GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
 CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused
-CFLAGS	+= -fno-builtin -Wall -ggdb -nostdinc $(DEFS)
+CFLAGS	+= -fno-builtin -Wall -nostdinc $(DEFS)
 CFLAGS	+= -fno-stack-protector
 CTYPE	:= c S
 

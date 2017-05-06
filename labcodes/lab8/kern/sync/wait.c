@@ -3,6 +3,8 @@
 #include <sync.h>
 #include <wait.h>
 #include <proc.h>
+#include <assert.h>
+#include <sched.h>
 
 void
 wait_init(wait_t *wait, struct proc_struct *proc) {

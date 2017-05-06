@@ -6,6 +6,7 @@
 #include <proc.h>
 #include <sync.h>
 #include <assert.h>
+#include <sched.h>
 
 void
 sem_init(semaphore_t *sem, int value) {

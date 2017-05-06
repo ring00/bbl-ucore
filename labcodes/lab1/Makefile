@@ -25,13 +25,13 @@ endif
 
 # define compiler and flags
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -ggdb -Wall -O2
+HOSTCFLAGS	:= -Wall -Os
 
 GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
 CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused -Werror
-CFLAGS	+= -fno-builtin -Wall -ggdb -nostdinc $(DEFS)
+CFLAGS	+= -fno-builtin -Wall -Os -nostdinc $(DEFS)
 CFLAGS	+= -fno-stack-protector
 CTYPE	:= c S
 
@@ -131,7 +131,7 @@ $(call create_target,kernel)
 UCOREIMG	:= $(call totarget,ucore.img)
 
 $(UCOREIMG): $(kernel)
-	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel)  --disable-fp-emulation && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
 $(call create_target,ucore.img)
 
