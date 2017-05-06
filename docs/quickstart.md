@@ -2,7 +2,7 @@
 
 ## Toolchain Installation
 
-为了编译运行[bbl-ucore](https://github.com/ring00/bbl-ucore)，我们需要先配置RISC-V开发环境。我们已经有一份修改过的[riscv-tools](https://github.com/riscv/riscv-tools)供使用，输入以下命令快速安装工具链
+为了编译运行[bbl-ucore](https://github.com/ring00/bbl-ucore)，我们需要先配置RISC-V开发环境。我们已经有一份修改过的[riscv-tools](https://github.com/ring00/riscv-tools)供使用，输入以下命令快速安装工具链
 
 ```bash
 $ sudo apt-get install autoconf automake autotools-dev curl libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev
