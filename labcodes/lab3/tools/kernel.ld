@@ -1,11 +1,10 @@
-/* Simple linker script for the JOS kernel.
+/* Simple linker script for the ucore kernel.
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
 OUTPUT_ARCH(riscv)
-ENTRY(_entry)
+ENTRY(kern_entry)
 
 BASE_ADDRESS = 0xC0000000;
-STACK_SIZE = 0x2000;
 
 SECTIONS
 {
@@ -13,15 +12,13 @@ SECTIONS
     . = BASE_ADDRESS;
 
     .text : {
-        *(.text._entry)
-        *(.text)
-        *(.text.*)
+        *(.text.kern_entry .text .stub .text.* .gnu.linkonce.t.*)
     }
-    etext = .;
+
+    PROVIDE(etext = .); /* Define the 'etext' symbol to this value */
 
     .rodata : {
-        *(.rodata)
-        *(.rodata.*)
+        *(.rodata .rodata.* .gnu.linkonce.r.*)
     }
 
     /* Include debugging information in kernel memory */
@@ -44,32 +41,20 @@ SECTIONS
     /* Adjust the address for the data segment to the next page */
     . = ALIGN(0x1000);
 
+    /* The data segment */
     .data : {
         *(.data)
-        *(.data.*)
     }
-    edata = .;
+
+    PROVIDE(edata = .);
 
     .bss : {
-        *(.sbss)
-        *(.sbss.*)
         *(.bss)
-        *(.bss.*)
-        *(COMMON)
     }
-    ebss = .;
 
-    /* Stack */
-    bootstack = .;
-    . += STACK_SIZE;
-    bootstacktop = .; 
-
-    end = .;
+    PROVIDE(end = .);
 
     /DISCARD/ : {
-        *(.comment)
-        *(.note*)
-        *(.eh_frame)
-        *(.note.GNU-stack)
+        *(.eh_frame .note.GNU-stack)
     }
 }
