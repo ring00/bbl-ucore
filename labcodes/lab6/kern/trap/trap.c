@@ -3,7 +3,7 @@
 #include <memlayout.h>
 #include <clock.h>
 #include <trap.h>
-#include <x86.h>
+#include <riscv.h>
 #include <stdio.h>
 #include <assert.h>
 #include <console.h>
@@ -28,46 +28,9 @@ static void print_ticks() {
 #endif
 }
 
-/* *
- * Interrupt descriptor table:
- *
- * Must be built at run time because shifted function addresses can't
- * be represented in relocation records.
- * */
-static struct gatedesc idt[256] = {{0}};
-
-static struct pseudodesc idt_pd = {
-    sizeof(idt) - 1, (uintptr_t)idt
-};
-
 /* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
 void
 idt_init(void) {
-     /* LAB1 YOUR CODE : STEP 2 */
-     /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
-      *     All ISR's entry addrs are stored in __vectors. where is uintptr_t __vectors[] ?
-      *     __vectors[] is in kern/trap/vector.S which is produced by tools/vector.c
-      *     (try "make" command in lab1, then you will find vector.S in kern/trap DIR)
-      *     You can use  "extern uintptr_t __vectors[];" to define this extern variable which will be used later.
-      * (2) Now you should setup the entries of ISR in Interrupt Description Table (IDT).
-      *     Can you see idt[256] in this file? Yes, it's IDT! you can use SETGATE macro to setup each item of IDT
-      * (3) After setup the contents of IDT, you will let CPU know where is the IDT by using 'lidt' instruction.
-      *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
-      *     Notice: the argument of lidt is idt_pd. try to find it!
-      */
-     /* LAB5 YOUR CODE */ 
-     //you should update your lab1 code (just add ONE or TWO lines of code), let user app to use syscall to get the service of ucore
-     //so you should setup the syscall interrupt gate in here
-    // extern uintptr_t __vectors[];
-    // int i = 0;
-    // for (i = 0; i < 256; ++i) {
-    //     SETGATE(idt[i], 1, GD_KTEXT, __vectors[i], DPL_KERNEL);
-    // }
-    // // set the DPL of 0x80 to 3
-    // SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
-
-    // lidt(&idt_pd);
-
     extern void __alltraps(void);
     /* Set sscratch register to 0, indicating to exception vector that we are
      * presently executing in the kernel */
@@ -77,52 +40,11 @@ idt_init(void) {
     set_csr(sstatus, SSTATUS_SIE);
 }
 
-static const char *
-trapname(int trapno) {
-    static const char * const excnames[] = {
-        "Divide error",
-        "Debug",
-        "Non-Maskable Interrupt",
-        "Breakpoint",
-        "Overflow",
-        "BOUND Range Exceeded",
-        "Invalid Opcode",
-        "Device Not Available",
-        "Double Fault",
-        "Coprocessor Segment Overrun",
-        "Invalid TSS",
-        "Segment Not Present",
-        "Stack Fault",
-        "General Protection",
-        "Page Fault",
-        "(unknown trap)",
-        "x87 FPU Floating-Point Error",
-        "Alignment Check",
-        "Machine-Check",
-        "SIMD Floating-Point Exception"
-    };
-
-    if (trapno < sizeof(excnames)/sizeof(const char * const)) {
-        return excnames[trapno];
-    }
-    if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16) {
-        return "Hardware Interrupt";
-    }
-    return "(unknown trap)";
-}
-
 /* trap_in_kernel - test if trap happened in kernel */
 bool
 trap_in_kernel(struct trapframe *tf) {
-    // return (tf->tf_cs == (uint16_t)KERNEL_CS);
-    return (tf->status & SSTATUS_SPP) ? 1 : 0;
+    return (tf->status & SSTATUS_SPP) != 0;
 }
-
-static const char *IA32flags[] = {
-    "CF", NULL, "PF", NULL, "AF", NULL, "ZF", "SF",
-    "TF", "IF", "DF", "OF", NULL, NULL, "NT", NULL,
-    "RF", "VM", "AC", "VIF", "VIP", "ID", NULL, NULL,
-};
 
 void
 print_trapframe(struct trapframe *tf) {
@@ -170,26 +92,10 @@ print_regs(struct pushregs* gpr) {
     cprintf("  t6       0x%08x\n", gpr->t6);
 }
 
-static inline void
-print_pgfault(struct trapframe *tf) {
-    /* error_code:
-     * bit 0 == 0 means no page found, 1 means protection fault
-     * bit 1 == 0 means read, 1 means write
-     * bit 2 == 0 means kernel, 1 means user
-     * */
-    // cprintf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
-    //         (tf->tf_err & 4) ? 'U' : 'K',
-    //         (tf->tf_err & 2) ? 'W' : 'R',
-    //         (tf->tf_err & 1) ? "protection fault" : "no page found");
-    // The page fault test is in kernel anyway, so print a 'K/' here
-    cprintf("page falut at 0x%08x: K/", tf->badvaddr);
-    if (tf->cause == CAUSE_FAULT_LOAD) {
-        cprintf("R\n");
-    } else if (tf->cause == CAUSE_FAULT_STORE) {
-        cprintf("W\n");
-    } else {
-        cprintf("0x%08x\n", tf->cause);
-    }
+static inline void print_pgfault(struct trapframe *tf) {
+    cprintf("page falut at 0x%08x: %c/%c\n", tf->badvaddr,
+            trap_in_kernel(tf) ? 'K' : 'U',
+            tf->cause == CAUSE_FAULT_STORE ? 'W' : 'R');
 }
 
 static int
@@ -211,7 +117,6 @@ pgfault_handler(struct trapframe *tf) {
         }
         mm = current->mm;
     }
-    // return do_pgfault(mm, tf->tf_err, rcr2());
     return do_pgfault(mm, tf->cause, tf->badvaddr);
 }
 
@@ -221,7 +126,7 @@ extern struct mm_struct *check_mm_struct;
 void interrupt_handler(struct trapframe *tf) {
     intptr_t cause = (tf->cause << 1) >> 1;
     switch (cause) {
-        case 0:
+        case IRQ_U_SOFT:
             cprintf("User software interrupt\n");
             break;
         case IRQ_S_SOFT:
@@ -233,7 +138,7 @@ void interrupt_handler(struct trapframe *tf) {
         case IRQ_M_SOFT:
             cprintf("Machine software interrupt\n");
             break;
-        case 4:
+        case IRQ_U_TIMER:
             cprintf("User software interrupt\n");
             break;
         case IRQ_S_TIMER:
@@ -258,7 +163,7 @@ void interrupt_handler(struct trapframe *tf) {
         case IRQ_M_TIMER:
             cprintf("Machine software interrupt\n");
             break;
-        case 8:
+        case IRQ_U_EXT:
             cprintf("User software interrupt\n");
             break;
         case IRQ_S_EXT:
@@ -317,14 +222,13 @@ void exception_handler(struct trapframe *tf) {
             break;
         case CAUSE_USER_ECALL:
             // cprintf("Environment call from U-mode\n");
-            // print_trapframe(tf);
+            // Advance SEPC to avoid executing the original ecall instruction on sret
             tf->epc += 4;
             syscall();
-            // Advance SEPC to avoid executing the original ecall instruction on sret
-            // sbi_shutdown();
             break;
         case CAUSE_SUPERVISOR_ECALL:
             cprintf("Environment call from S-mode\n");
+            tf->epc += 4;
             syscall();
             break;
         case CAUSE_HYPERVISOR_ECALL:
@@ -356,8 +260,6 @@ static inline void trap_dispatch(struct trapframe* tf) {
  * */
 void
 trap(struct trapframe *tf) {
-    // print_trapframe(tf);
-    // sbi_shutdown();
     // dispatch based on what type of trap occurred
     if (current == NULL) {
         trap_dispatch(tf);

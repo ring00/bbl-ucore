@@ -24,6 +24,7 @@ struct pmm_manager {
 
 extern const struct pmm_manager *pmm_manager;
 extern pde_t *boot_pgdir;
+extern const size_t nbase;
 extern uintptr_t boot_cr3;
 
 void pmm_init(void);
@@ -40,7 +41,6 @@ struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store);
 void page_remove(pde_t *pgdir, uintptr_t la);
 int page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm);
 
-void load_esp0(uintptr_t esp0);
 void tlb_invalidate(pde_t *pgdir, uintptr_t la);
 struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm);
 void unmap_range(pde_t *pgdir, uintptr_t start, uintptr_t end);
@@ -83,7 +83,7 @@ extern uint32_t va_pa_offset;
 
 static inline ppn_t
 page2ppn(struct Page *page) {
-    return page - pages;
+    return page - pages + nbase;
 }
 
 static inline uintptr_t
@@ -96,7 +96,7 @@ pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
-    return &pages[PPN(pa)];
+    return &pages[PPN(pa) - nbase];
 }
 
 static inline void *

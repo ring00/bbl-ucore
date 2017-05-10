@@ -1,5 +1,5 @@
 #include <defs.h>
-#include <x86.h>
+#include <riscv.h>
 #include <elf.h>
 
 /* *********************************************************************

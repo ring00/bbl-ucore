@@ -1,7 +1,7 @@
 #ifndef __KERN_SYNC_SYNC_H__
 #define __KERN_SYNC_SYNC_H__
 
-#include <x86.h>
+#include <riscv.h>
 #include <intr.h>
 #include <mmu.h>
 #include <assert.h>

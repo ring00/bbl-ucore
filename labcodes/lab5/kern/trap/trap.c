@@ -95,7 +95,6 @@ static inline void print_pgfault(struct trapframe *tf) {
             tf->cause == CAUSE_FAULT_STORE ? 'W' : 'R');
 }
 
-
 static int
 pgfault_handler(struct trapframe *tf) {
     extern struct mm_struct *check_mm_struct;

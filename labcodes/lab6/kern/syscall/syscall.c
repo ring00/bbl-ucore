@@ -16,7 +16,6 @@ sys_exit(uint32_t arg[]) {
 static int
 sys_fork(uint32_t arg[]) {
     struct trapframe *tf = current->tf;
-    // uintptr_t stack = tf->tf_esp;
     uintptr_t stack = tf->gpr.sp;
     return do_fork(0, stack, tf);
 }

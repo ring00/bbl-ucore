@@ -39,7 +39,7 @@ swap_init(void)
      //      panic("bad max_swap_offset %08x.\n", max_swap_offset);
      // }
      // Since the IDE is faked, it can only store 10 pages at most to pass the test
-     if (!(10 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT))
+     if (!(7 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT))
      {
         panic("bad max_swap_offset %08x.\n", max_swap_offset);
      }
