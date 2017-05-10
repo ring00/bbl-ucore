@@ -28,19 +28,19 @@ endif
 # define compiler and flags
 
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -g -ggdb -Wall -O0
+HOSTCFLAGS	:= -Wall -O2
 
 GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
-CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused
-CFLAGS	+= -fno-builtin -Wall -ggdb -nostdinc $(DEFS)
-CFLAGS	+= -fno-stack-protector
+CFLAGS  := -mcmodel=medany -O2 -std=gnu99 -Wno-unused
+CFLAGS	+= -fno-builtin -Wall -nostdinc $(DEFS)
+CFLAGS	+= -fno-stack-protector -ffunction-sections -fdata-sections
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
 LDFLAGS	:= -m elf32lriscv
-LDFLAGS	+= -nostdlib
+LDFLAGS	+= -nostdlib --gc-sections
 
 OBJCOPY := $(GCCPREFIX)objcopy
 OBJDUMP := $(GCCPREFIX)objdump
@@ -141,8 +141,7 @@ KINCLUDE	+= kern/debug/ \
 			   kern/fs/    \
 			   kern/process \
 			   kern/schedule \
-			   kern/syscall \
-			   riscv/
+			   kern/syscall
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
@@ -177,46 +176,13 @@ $(call create_target,kernel)
 
 # -------------------------------------------------------------------
 
-# create bootblock
-# bootfiles = $(call listf_cc,boot)
-# $(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
-
-# bootblock = $(call totarget,bootblock)
-
-# $(bootblock): $(call toobj,boot/bootasm.S) $(call toobj,$(bootfiles)) | $(call totarget,sign)
-# 	@echo + ld $@
-# 	$(V)$(LD) $(LDFLAGS) -N -T tools/boot.ld $^ -o $(call toobj,bootblock)
-# 	@$(OBJDUMP) -S $(call objfile,bootblock) > $(call asmfile,bootblock)
-# 	@$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
-# 	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
-
-# $(call create_target,bootblock)
-
-# -------------------------------------------------------------------
-
-# create 'sign' tools
-# $(call add_files_host,tools/sign.c,sign,sign)
-# $(call create_target_host,sign,sign)
-
-# -------------------------------------------------------------------
-
 # create ucore.img
 UCOREIMG	:= $(call totarget,ucore.img)
 
 $(UCOREIMG): $(kernel)
-	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
+	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv32-unknown-linux-gnu  --disable-fp-emulation --with-payload=../../labcodes/$(PROJ)/$(kernel) && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
 $(call create_target,ucore.img)
-
-# -------------------------------------------------------------------
-
-# create swap.img
-# SWAPIMG		:= $(call totarget,swap.img)
-
-# $(SWAPIMG):
-# 	$(V)dd if=/dev/zero of=$@ bs=1M count=128
-
-# $(call create_target,swap.img)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -244,10 +210,10 @@ TARGETS: $(TARGETS)
 QEMUOPTS = -hda $(UCOREIMG) -drive file=$(SWAPIMG),media=disk,cache=writeback
 
 .PHONY: qemu spike
-qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+qemu: $(UCOREIMG)
 	$(V)$(QEMU) -kernel $(UCOREIMG) -nographic
 
-spike: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+spike: $(UCOREIMG)
 	$(V)$(SPIKE) $(UCOREIMG)
 
 RUN_PREFIX	:= _binary_$(OBJDIR)_$(USER_PREFIX)

@@ -1,4 +1,4 @@
-#include <x86.h>
+#include <riscv.h>
 #include <stdlib.h>
 
 static unsigned long long next = 1;

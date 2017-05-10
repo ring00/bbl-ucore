@@ -1,15 +1,13 @@
 #ifndef __KERN_SYNC_SYNC_H__
 #define __KERN_SYNC_SYNC_H__
 
-#include <x86.h>
+#include <defs.h>
 #include <intr.h>
-#include <mmu.h>
-#include <assert.h>
-#include <atomic.h>
 #include <sched.h>
+#include <riscv.h>
+#include <assert.h>
 
-static inline bool
-__intr_save(void) {
+static inline bool __intr_save(void) {
     if (read_csr(sstatus) & SSTATUS_SIE) {
         intr_disable();
         return 1;
@@ -17,8 +15,7 @@ __intr_save(void) {
     return 0;
 }
 
-static inline void
-__intr_restore(bool flag) {
+static inline void __intr_restore(bool flag) {
     if (flag) {
         intr_enable();
     }

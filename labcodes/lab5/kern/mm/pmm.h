@@ -24,6 +24,7 @@ struct pmm_manager {
 
 extern const struct pmm_manager *pmm_manager;
 extern pde_t *boot_pgdir;
+extern const size_t nbase;
 extern uintptr_t boot_cr3;
 
 void pmm_init(void);
@@ -83,7 +84,7 @@ extern uint32_t va_pa_offset;
 
 static inline ppn_t
 page2ppn(struct Page *page) {
-    return page - pages;
+    return page - pages + nbase;
 }
 
 static inline uintptr_t
@@ -96,7 +97,7 @@ pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
-    return &pages[PPN(pa)];
+    return &pages[PPN(pa) - nbase];
 }
 
 static inline void *

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <error.h>
 #include <pmm.h>
-#include <x86.h>
+#include <riscv.h>
 #include <swap.h>
 #include <kmalloc.h>
 
@@ -400,26 +400,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
-    // do nothing about error_code(tf->cause)
-    // //check the error_code
-    // switch (error_code & 3) {
-    // default:
-    //         /* error code flag : default is 3 ( W/R=1, P=1): write, present */
-    // case 2: /* error code flag : (W/R=1, P=0): write, not present */
-    //     if (!(vma->vm_flags & VM_WRITE)) {
-    //         cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
-    //         goto failed;
-    //     }
-    //     break;
-    // case 1: /* error code flag : (W/R=0, P=1): read, present */
-    //     cprintf("do_pgfault failed: error code flag = read AND present\n");
-    //     goto failed;
-    // case 0: /* error code flag : (W/R=0, P=0): read, not present */
-    //     if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
-    //         cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
-    //         goto failed;
-    //     }
-    // }
+
     /* IF (write an existed addr ) OR
      *    (write an non_existed addr && addr is writable) OR
      *    (read  an non_existed addr && addr is readable)

@@ -264,17 +264,10 @@ int
 kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;
     memset(&tf, 0, sizeof(struct trapframe));
-
-    // tf.tf_cs = KERNEL_CS;
-    // tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
-    // tf.tf_regs.reg_ebx = (uint32_t)fn;
-    // tf.tf_regs.reg_edx = (uint32_t)arg;
-    // tf.tf_eip = (uint32_t)kernel_thread_entry;
     tf.gpr.s0 = (uintptr_t)fn;
     tf.gpr.s1 = (uintptr_t)arg;
     tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
     tf.epc = (uintptr_t)kernel_thread_entry;
-    cprintf("bootstack = 0x%08x, bootstacktop = 0x%08x\n", bootstack, bootstacktop);
     return do_fork(clone_flags | CLONE_VM, 0, &tf);
 }
 
@@ -368,19 +361,13 @@ bad_mm:
 //             - setup the kernel entry point and stack of process
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
-    // proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE - sizeof(struct trapframe));
-    // The same...
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
     *(proc->tf) = *tf;
-    // proc->tf->tf_regs.reg_eax = 0;
+
     // Set a0 to 0 so a child process knows it's just forked
     proc->tf->gpr.a0 = 0;
-    proc->tf->gpr.sp = (esp == 0) ? proc->kstack : esp;
-    // proc->tf->tf_esp = esp;
-    // proc->tf->tf_eflags |= FL_IF;
+    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf - 4 : esp;
 
-    // proc->context.eip = (uintptr_t)forkret;
-    // proc->context.esp = (uintptr_t)(proc->tf);
     proc->context.ra = (uintptr_t)forkret;
     proc->context.sp = (uintptr_t)(proc->tf);
 }
@@ -710,11 +697,6 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
         goto execve_exit;
     }
     set_proc_name(current, local_name);
-    cprintf("do_execve\n");
-    cprintf("proc name: %s pid: %d\n", current->name, current->pid);
-    cprintf("proc->cr3: 0x%08x\n", current->cr3);
-    cprintf("proc ra = 0x%08x, sp = 0x%08x\n", current->context.ra, current->context.sp);
-    cprintf("\n");
     return 0;
 
 execve_exit:

@@ -505,7 +505,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         proc->pid = get_pid();
         hash_proc(proc);
         set_links(proc);
-
     }
     local_intr_restore(intr_flag);
 
