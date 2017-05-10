@@ -1,6 +1,6 @@
 # Toolchain Overview
 
-RISC-V，作为一个较新的ISA，从未被实现过。因此想要在现有工具链上进行开发，读者有必要熟悉工具链中众多的workaround和undocumented features。
+RISC-V，作为一个较新的ISA，从未被完整实现过。因此想要在现有工具链上进行开发，读者有必要熟悉工具链中众多的workaround和undocumented features。
 
 ## RISC-V Tools
 
