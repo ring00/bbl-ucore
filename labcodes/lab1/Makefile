@@ -25,19 +25,19 @@ endif
 
 # define compiler and flags
 HOSTCC		:= gcc
-HOSTCFLAGS	:= -Wall -Os
+HOSTCFLAGS	:= -Wall -O2
 
 GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
 CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused -Werror
-CFLAGS	+= -fno-builtin -Wall -Os -nostdinc $(DEFS)
-CFLAGS	+= -fno-stack-protector
+CFLAGS	+= -fno-builtin -Wall -O2 -nostdinc $(DEFS)
+CFLAGS	+= -fno-stack-protector -ffunction-sections -fdata-sections
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
 LDFLAGS	:= -m elf32lriscv
-LDFLAGS	+= -nostdlib
+LDFLAGS	+= -nostdlib --gc-sections
 
 OBJCOPY := $(GCCPREFIX)objcopy
 OBJDUMP := $(GCCPREFIX)objdump
