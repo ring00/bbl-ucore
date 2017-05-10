@@ -178,7 +178,6 @@ proc_run(struct proc_struct *proc) {
         local_intr_save(intr_flag);
         {
             current = proc;
-            load_esp0(next->kstack + KSTACKSIZE);
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
         }
@@ -223,14 +222,9 @@ kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;
     memset(&tf, 0, sizeof(struct trapframe));
 
-    // tf.tf_cs = KERNEL_CS;
-    // tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
-    // tf.tf_regs.reg_ebx = (uint32_t)fn;
-    // tf.tf_regs.reg_edx = (uint32_t)arg;
-    // tf.tf_eip = (uint32_t)kernel_thread_entry;
     tf.gpr.s0 = (uintptr_t)fn;
     tf.gpr.s1 = (uintptr_t)arg;
-    tf.status = read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE;
+    tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
     tf.epc = (uintptr_t)kernel_thread_entry;
     return do_fork(clone_flags | CLONE_VM, 0, &tf);
 }
@@ -267,14 +261,11 @@ static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE - sizeof(struct trapframe));
     *(proc->tf) = *tf;
-    // proc->tf->tf_regs.reg_eax = 0;
-    // proc->tf->tf_esp = esp;
-    // proc->tf->tf_eflags |= FL_IF;
 
-    // proc->context.eip = (uintptr_t)forkret;
-    // proc->context.esp = (uintptr_t)(proc->tf);
-    // proc->tf->gpr.sp = esp;
-    proc->tf->gpr.sp = proc->kstack + KSTACKSIZE;
+    // Set a0 to 0 so a child process knows it's just forked
+    proc->tf->gpr.a0 = 0;
+    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf : esp;
+
     proc->context.ra = (uintptr_t)forkret;
     proc->context.sp = (uintptr_t)(proc->tf);
 }
@@ -324,9 +315,8 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto bad_fork_cleanup_proc;
     }
     copy_mm(clone_flags, proc);
-    // copy_thread(proc, stack, tf);
-    // This is the right way, I suppose.
-    copy_thread(proc, proc->kstack, tf);
+
+    copy_thread(proc, stack, tf);
 
     const int pid = get_pid();
     proc->pid = pid;

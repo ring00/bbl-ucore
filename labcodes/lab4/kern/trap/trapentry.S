@@ -1,4 +1,4 @@
-#include <bits.h>
+#include <riscv.h>
 
     .macro SAVE_ALL
 
@@ -90,29 +90,26 @@
     LOAD  x29,29*REGBYTES(sp)
     LOAD  x30,30*REGBYTES(sp)
     LOAD  x31,31*REGBYTES(sp)
-    // restore sp last
+    # restore sp last
     LOAD  x2,2*REGBYTES(sp)
     .endm
 
-    .align 4
     .globl __alltraps
 __alltraps:
     SAVE_ALL
 
     move  a0, sp
     jal trap
-    // sp should be the same as before "jal trap"
+    # sp should be the same as before "jal trap"
 
     .globl __trapret
 __trapret:
     RESTORE_ALL
-    // go back from supervisor call
+    # go back from supervisor call
     sret
  
     .globl forkrets
 forkrets:
     # set stack to this new process's trapframe
-    // movl 4(%esp), %esp
-    // jmp __trapret
     move sp, a0
     j __trapret

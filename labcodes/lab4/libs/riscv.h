@@ -1,7 +1,22 @@
 // See LICENSE for license details.
 
-#ifndef RISCV_CSR_ENCODING_H
-#define RISCV_CSR_ENCODING_H
+#ifndef __LIBS_RISCV_H__
+#define __LIBS_RISCV_H__
+
+#if __riscv_xlen == 64
+# define SLL32    sllw
+# define STORE    sd
+# define LOAD     ld
+# define LWU      lwu
+# define LOG_REGBYTES 3
+#else
+# define SLL32    sll
+# define STORE    sw
+# define LOAD     lw
+# define LWU      lw
+# define LOG_REGBYTES 2
+#endif
+#define REGBYTES (1 << LOG_REGBYTES)
 
 #define MSTATUS_UIE         0x00000001
 #define MSTATUS_SIE         0x00000002
@@ -114,12 +129,15 @@
 #define VM_SV39  9
 #define VM_SV48  10
 
+#define IRQ_U_SOFT   0
 #define IRQ_S_SOFT   1
 #define IRQ_H_SOFT   2
 #define IRQ_M_SOFT   3
+#define IRQ_U_TIMER  4
 #define IRQ_S_TIMER  5
 #define IRQ_H_TIMER  6
 #define IRQ_M_TIMER  7
+#define IRQ_U_EXT    8
 #define IRQ_S_EXT    9
 #define IRQ_H_EXT    10
 #define IRQ_M_EXT    11
@@ -202,6 +220,21 @@
 #define rdinstret() read_csr(instret)
 
 #endif
+
+#define do_div(n, base)                              \
+    ({                                               \
+        int __res;                                   \
+        __res = ((unsigned long)n) % (unsigned)base; \
+        n = ((unsigned long)n) / (unsigned)base;     \
+        __res;                                       \
+    })
+
+#define barrier() __asm__ __volatile__ ("fence" ::: "memory")
+
+static inline void
+lcr3(unsigned int cr3) {
+    write_csr(sptbr, cr3 >> RISCV_PGSHIFT);
+}
 
 #endif
 

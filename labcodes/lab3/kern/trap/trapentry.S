@@ -90,7 +90,7 @@
     LOAD  x29,29*REGBYTES(sp)
     LOAD  x30,30*REGBYTES(sp)
     LOAD  x31,31*REGBYTES(sp)
-    // restore sp last
+    # restore sp last
     LOAD  x2,2*REGBYTES(sp)
     .endm
 

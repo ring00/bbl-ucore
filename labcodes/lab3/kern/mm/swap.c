@@ -32,7 +32,7 @@ swap_init(void)
 {
      swapfs_init();
 
-     // Since the IDE is faked, it can only store 10 pages at most to pass the test
+     // Since the IDE is faked, it can only store 7 pages at most to pass the test
      if (!(7 <= max_swap_offset &&
         max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
         panic("bad max_swap_offset %08x.\n", max_swap_offset);

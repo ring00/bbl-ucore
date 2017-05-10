@@ -9,8 +9,8 @@ kern_entry:
     tail kern_init
 
 .section .data
-	# .align 2^12
-	.align PGSHIFT
+    # .align 2^12
+    .align PGSHIFT
     .global bootstack
 bootstack:
     .space KSTACKSIZE
