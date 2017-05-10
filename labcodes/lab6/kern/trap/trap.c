@@ -1,36 +1,36 @@
-#include <defs.h>
-#include <mmu.h>
-#include <memlayout.h>
-#include <clock.h>
-#include <trap.h>
-#include <riscv.h>
-#include <stdio.h>
 #include <assert.h>
+#include <clock.h>
 #include <console.h>
-#include <vmm.h>
-#include <swap.h>
-#include <kdebug.h>
-#include <unistd.h>
-#include <syscall.h>
+#include <defs.h>
 #include <error.h>
-#include <sched.h>
-#include <sync.h>
+#include <kdebug.h>
+#include <memlayout.h>
+#include <mmu.h>
 #include <proc.h>
+#include <riscv.h>
 #include <sbi.h>
+#include <sched.h>
+#include <stdio.h>
+#include <swap.h>
+#include <sync.h>
+#include <syscall.h>
+#include <trap.h>
+#include <unistd.h>
+#include <vmm.h>
 
 #define TICK_NUM 100
 
 static void print_ticks() {
-    cprintf("%d ticks\n",TICK_NUM);
+    cprintf("%d ticks\n", TICK_NUM);
 #ifdef DEBUG_GRADE
     cprintf("End of Test.\n");
     panic("EOT: kernel seems ok.");
 #endif
 }
 
-/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
-void
-idt_init(void) {
+/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S
+ */
+void idt_init(void) {
     extern void __alltraps(void);
     /* Set sscratch register to 0, indicating to exception vector that we are
      * presently executing in the kernel */
@@ -41,13 +41,11 @@ idt_init(void) {
 }
 
 /* trap_in_kernel - test if trap happened in kernel */
-bool
-trap_in_kernel(struct trapframe *tf) {
+bool trap_in_kernel(struct trapframe *tf) {
     return (tf->status & SSTATUS_SPP) != 0;
 }
 
-void
-print_trapframe(struct trapframe *tf) {
+void print_trapframe(struct trapframe *tf) {
     cprintf("trapframe at %p\n", tf);
     print_regs(&tf->gpr);
     cprintf("  status   0x%08x\n", tf->status);
@@ -56,8 +54,7 @@ print_trapframe(struct trapframe *tf) {
     cprintf("  cause    0x%08x\n", tf->cause);
 }
 
-void
-print_regs(struct pushregs* gpr) {
+void print_regs(struct pushregs *gpr) {
     cprintf("  zero     0x%08x\n", gpr->zero);
     cprintf("  ra       0x%08x\n", gpr->ra);
     cprintf("  sp       0x%08x\n", gpr->sp);
@@ -98,18 +95,16 @@ static inline void print_pgfault(struct trapframe *tf) {
             tf->cause == CAUSE_FAULT_STORE ? 'W' : 'R');
 }
 
-static int
-pgfault_handler(struct trapframe *tf) {
+static int pgfault_handler(struct trapframe *tf) {
     extern struct mm_struct *check_mm_struct;
-    if(check_mm_struct !=NULL) { //used for test check_swap
-            print_pgfault(tf);
-        }
+    if (check_mm_struct != NULL) {  // used for test check_swap
+        print_pgfault(tf);
+    }
     struct mm_struct *mm;
     if (check_mm_struct != NULL) {
         assert(current == idleproc);
         mm = check_mm_struct;
-    }
-    else {
+    } else {
         if (current == NULL) {
             print_trapframe(tf);
             print_pgfault(tf);
@@ -222,7 +217,8 @@ void exception_handler(struct trapframe *tf) {
             break;
         case CAUSE_USER_ECALL:
             // cprintf("Environment call from U-mode\n");
-            // Advance SEPC to avoid executing the original ecall instruction on sret
+            // Advance SEPC to avoid executing the original ecall instruction on
+            // sret
             tf->epc += 4;
             syscall();
             break;
@@ -243,7 +239,7 @@ void exception_handler(struct trapframe *tf) {
     }
 }
 
-static inline void trap_dispatch(struct trapframe* tf) {
+static inline void trap_dispatch(struct trapframe *tf) {
     if ((intptr_t)tf->cause < 0) {
         // interrupts
         interrupt_handler(tf);
@@ -254,12 +250,12 @@ static inline void trap_dispatch(struct trapframe* tf) {
 }
 
 /* *
- * trap - handles or dispatches an exception/interrupt. if and when trap() returns,
+ * trap - handles or dispatches an exception/interrupt. if and when trap()
+ * returns,
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void
-trap(struct trapframe *tf) {
+void trap(struct trapframe *tf) {
     // dispatch based on what type of trap occurred
     if (current == NULL) {
         trap_dispatch(tf);

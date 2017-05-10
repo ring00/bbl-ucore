@@ -1,14 +1,13 @@
-#include <bits.h>
-#include <encoding.h>
+#include <riscv.h>
 
     .altmacro
     .macro SAVE_ALL
     LOCAL _restore_kernel_sp
     LOCAL _save_context
 
-    /* If coming from userspace, preserve the user stack pointer and load
-       the kernel stack pointer. If we came from the kernel, sscratch
-       will contain 0, and we should continue on the current stack. */
+    # If coming from userspace, preserve the user stack pointer and load
+    # the kernel stack pointer. If we came from the kernel, sscratch
+    # will contain 0, and we should continue on the current stack.
     csrrw sp, sscratch, sp
     bnez sp, _save_context
 
@@ -16,7 +15,7 @@ _restore_kernel_sp:
     csrr sp, sscratch
 _save_context:
     addi sp, sp, -36 * REGBYTES
-    # save gprs
+    # save x registers
     STORE x0, 0*REGBYTES(sp)
     STORE x1, 1*REGBYTES(sp)
     STORE x3, 3*REGBYTES(sp)
@@ -77,14 +76,13 @@ _save_context:
 
 _save_kernel_sp:
     # Save unwound kernel stack pointer in sscratch
-    // LOAD s0, 2*REGBYTES(sp)
     addi s0, sp, 36 * REGBYTES
     csrw sscratch, s0
 _restore_context:
     csrw sstatus, s1
     csrw sepc, s2
 
-    // restore x registers
+    # restore x registers
     LOAD x1, 1*REGBYTES(sp)
     LOAD x3, 3*REGBYTES(sp)
     LOAD x4, 4*REGBYTES(sp)
@@ -115,7 +113,7 @@ _restore_context:
     LOAD x29, 29*REGBYTES(sp)
     LOAD x30, 30*REGBYTES(sp)
     LOAD x31, 31*REGBYTES(sp)
-    // restore sp last
+    # restore sp last
     LOAD x2, 2*REGBYTES(sp)
     .endm
 
@@ -125,18 +123,16 @@ __alltraps:
 
     move  a0, sp
     jal trap
-    // sp should be the same as before "jal trap"
+    # sp should be the same as before "jal trap"
 
     .globl __trapret
 __trapret:
     RESTORE_ALL
-    // go back from supervisor call
+    # return from supervisor call
     sret
  
     .globl forkrets
 forkrets:
     # set stack to this new process's trapframe
-    // movl 4(%esp), %esp
-    // jmp __trapret
     move sp, a0
     j __trapret

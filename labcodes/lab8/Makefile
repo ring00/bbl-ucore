@@ -30,14 +30,14 @@ HOSTCFLAGS	:= -Wall -O2
 GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
-CFLAGS  := -mcmodel=medany -std=gnu99 -Wno-unused
+CFLAGS  := -mcmodel=medany -O2 -std=gnu99 -Wno-unused
 CFLAGS	+= -fno-builtin -Wall -nostdinc $(DEFS)
-CFLAGS	+= -fno-stack-protector
+CFLAGS	+= -fno-stack-protector -ffunction-sections -fdata-sections
 CTYPE	:= c S
 
 LD      := $(GCCPREFIX)ld
 LDFLAGS	:= -m elf32lriscv
-LDFLAGS	+= -nostdlib
+LDFLAGS	+= -nostdlib --gc-sections
 
 OBJCOPY := $(GCCPREFIX)objcopy
 OBJDUMP := $(GCCPREFIX)objdump
@@ -159,7 +159,7 @@ $(call create_target_host,mksfs,mksfs)
 SWAPIMG		:= $(call totarget,swap.img)
 
 $(SWAPIMG):
-	$(V)dd if=/dev/zero of=$@ bs=1M count=1
+	$(V)dd if=/dev/zero of=$@ bs=4kB count=8
 
 $(call create_target,swap.img)
 
@@ -182,7 +182,7 @@ $(SFSROOT):
 	$(V)$(MKDIR) $@
 
 $(SFSIMG): $(SFSROOT) $(SFSBINS) | $(call totarget,mksfs)
-	$(V)dd if=/dev/zero of=$@ bs=1M count=2
+	$(V)dd if=/dev/zero of=$@ bs=1kB count=480
 	@$(call totarget,mksfs) $@ $(SFSROOT)
 
 $(call create_target,sfs.img)

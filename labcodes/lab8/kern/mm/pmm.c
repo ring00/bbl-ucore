@@ -136,9 +136,8 @@ static void page_init(void) {
 
     npage = maxpa / PGSIZE;
     // BBL has put the initial page table at the first available page after the
-    // kernel
-    // so stay away from it by adding extra offset to end
-    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
+    // kernel so stay away from it by adding extra offset to end
+    pages = (struct Page*)ROUNDUP((void*)(KADDR(read_csr(sptbr) << PGSHIFT) + 2 * PGSIZE), PGSIZE);
 
     for (size_t i = 0; i < npage - nbase; i++) {
         SetPageReserved(pages + i);
@@ -148,6 +147,7 @@ static void page_init(void) {
 
     mem_begin = ROUNDUP(freemem, PGSIZE);
     mem_end = ROUNDDOWN(mem_end, PGSIZE);
+    cprintf("mem_begin: 0x%08x, mem_end: 0x%08x\n", mem_begin, mem_end);
     if (freemem < mem_end) {
         init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
     }

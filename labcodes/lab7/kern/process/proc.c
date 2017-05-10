@@ -231,7 +231,6 @@ proc_run(struct proc_struct *proc) {
         local_intr_save(intr_flag);
         {
             current = proc;
-            load_esp0(next->kstack + KSTACKSIZE);
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
         }
@@ -282,11 +281,6 @@ kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;
     memset(&tf, 0, sizeof(struct trapframe));
 
-    // tf.tf_cs = KERNEL_CS;
-    // tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
-    // tf.tf_regs.reg_ebx = (uint32_t)fn;
-    // tf.tf_regs.reg_edx = (uint32_t)arg;
-    // tf.tf_eip = (uint32_t)kernel_thread_entry;
     tf.gpr.s0 = (uintptr_t)fn;
     tf.gpr.s1 = (uintptr_t)arg;
     tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
@@ -385,16 +379,10 @@ static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
     *(proc->tf) = *tf;
-    // proc->tf->tf_regs.reg_eax = 0;
-    // proc->tf->tf_esp = esp;
-    // proc->tf->tf_eflags |= FL_IF;
-
-    // proc->context.eip = (uintptr_t)forkret;
-    // proc->context.esp = (uintptr_t)(proc->tf);
 
     // Set a0 to 0 so a child process knows it's just forked
     proc->tf->gpr.a0 = 0;
-    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf : esp;
+    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf - 4 : esp;
 
     proc->context.ra = (uintptr_t)forkret;
     proc->context.sp = (uintptr_t)(proc->tf);
@@ -676,11 +664,6 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
-    // tf->tf_cs = USER_CS;
-    // tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
-    // tf->tf_esp = USTACKTOP;
-    // tf->tf_eip = elf->e_entry;
-    // tf->tf_eflags |= FL_IF;
     tf->gpr.sp = USTACKTOP;
     tf->epc = elf->e_entry;
     tf->status = sstatus & ~(SSTATUS_SPP | SSTATUS_SPIE);
@@ -826,11 +809,6 @@ do_kill(int pid) {
 static int
 kernel_execve(const char *name, unsigned char *binary, size_t size) {
     int ret, len = strlen(name);
-    // asm volatile (
-    //     "int %1;"
-    //     : "=a" (ret)
-    //     : "i" (T_SYSCALL), "0" (SYS_exec), "d" (name), "c" (len), "b" (binary), "D" (size)
-    //     : "memory");
     asm volatile(
         "li a0, %1\n"
         "lw a1, %2\n"

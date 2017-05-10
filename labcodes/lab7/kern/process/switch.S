@@ -1,8 +1,9 @@
-#include <bits.h>
+#include <riscv.h>
 
 .text
+# void switch_to(struct proc_struct* from, struct proc_struct* to)
 .globl switch_to
-switch_to:                      # switch_to(from, to)
+switch_to:
     # save from's registers
     STORE ra, 0*REGBYTES(a0)
     STORE sp, 1*REGBYTES(a0)

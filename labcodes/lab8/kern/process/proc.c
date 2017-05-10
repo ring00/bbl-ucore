@@ -623,7 +623,6 @@ load_icode(int fd, int argc, char **kargv) {
      * (8) if up steps failed, you should cleanup the env.
      */
     assert(argc >= 0 && argc <= EXEC_MAX_ARG_NUM);
-
     if (current->mm != NULL) {
         panic("load_icode: current->mm must be empty.\n");
     }
@@ -976,6 +975,7 @@ kernel_execve(const char *name, const char **argv) {
         "li a0, %1\n"
         "lw a1, %2\n"
         "lw a2, %3\n"
+        "lw a3, %4\n"
         "li a7, 10\n"
         "ecall\n"
         "sw a0, %0"

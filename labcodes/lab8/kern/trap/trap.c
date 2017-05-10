@@ -219,17 +219,7 @@ void exception_handler(struct trapframe *tf) {
             cprintf("Load access fault\n");
             if ((ret = pgfault_handler(tf)) != 0) {
                 print_trapframe(tf);
-                if (current == NULL) {
-                    panic("handle pgfault failed. ret=%d\n", ret);
-                } else {
-                    if (trap_in_kernel(tf)) {
-                        panic("handle pgfault failed in kernel mode. ret=%d\n",
-                              ret);
-                    }
-                    cprintf("killed by kernel.\n");
-                    panic("handle user mode pgfault failed. ret=%d\n", ret);
-                    do_exit(-E_KILLED);
-                }
+                panic("handle pgfault failed. %e\n", ret);
             }
             break;
         case CAUSE_MISALIGNED_STORE:

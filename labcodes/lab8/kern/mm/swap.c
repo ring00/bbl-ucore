@@ -32,8 +32,8 @@ static void check_swap(void);
 int swap_init(void) {
     swapfs_init();
 
-    // 1MB swap.img
-    if (!(100 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
+    // 7 pages swap.img
+    if (!(7 <= max_swap_offset && max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
         panic("bad max_swap_offset %08x.\n", max_swap_offset);
     }
 
