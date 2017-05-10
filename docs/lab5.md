@@ -232,7 +232,7 @@ beqz sp, .Ltrap_from_machine_mode
 
 同样，在S-mode下也有一个功能类似的`sscratch`寄存器，由于S-mode下要处理的情况较多，具体的实现要更加复杂
 
-## Switching Stack in S-mode
+### Switching Stack in S-mode
 
 内核态ISR入口如下
 
