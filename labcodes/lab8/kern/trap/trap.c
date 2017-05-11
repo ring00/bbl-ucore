@@ -152,7 +152,9 @@ void interrupt_handler(struct trapframe *tf) {
             cprintf("User software interrupt\n");
             break;
         case IRQ_S_SOFT:
-            cprintf("Supervisor software interrupt\n");
+            // cprintf("Supervisor software interrupt\n");
+            serial_intr();
+            dev_stdin_write(cons_getc());
             break;
         case IRQ_H_SOFT:
             cprintf("Hypervisor software interrupt\n");

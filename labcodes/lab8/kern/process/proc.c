@@ -663,7 +663,8 @@ load_icode(int fd, int argc, char **kargv) {
             goto bad_cleanup_mmap;
         }
         if (ph->p_filesz == 0) {
-            continue ;
+            // continue ;
+            // do nothing here since static variables may not occupy any space
         }
         vm_flags = 0, perm = PTE_U | PTE_V;
         if (ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC;
@@ -1030,8 +1031,8 @@ init_main(void *arg) {
     if (pid <= 0) {
         panic("create user_main failed.\n");
     }
- extern void check_sync(void);
-    check_sync();                // check philosopher sync problem
+    extern void check_sync(void);
+    // check_sync();                // check philosopher sync problem
 
     while (do_wait(0, NULL) == 0) {
         schedule();
