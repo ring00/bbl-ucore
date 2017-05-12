@@ -27,12 +27,20 @@ SECTIONS
     /* The data segment */
     .data : {
         *(.data)
+        *(.data.*)
+    }
+
+    .sdata : {
+        *(.sdata)
+        *(.sdata.*)
     }
 
     PROVIDE(edata = .);
 
     .bss : {
         *(.bss)
+        *(.bss.*)
+        *(.sbss*)
     }
 
     PROVIDE(end = .);

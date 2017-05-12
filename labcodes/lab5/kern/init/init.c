@@ -20,9 +20,8 @@ static void lab1_switch_test(void);
 
 int
 kern_init(void) {
-    extern char edata[], ebss[];
-    // clean up the bss section will zero static variables in vmalloc
-    // memset(edata, 0, ebss - edata);
+    extern char edata[], end[];
+    memset(edata, 0, end - edata);
     cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...";

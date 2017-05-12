@@ -19,8 +19,8 @@ static void lab1_switch_test(void);
 
 int
 kern_init(void) {
-    // extern char edata[], end[];
-    // memset(edata, 0, end - edata);
+    extern char edata[], end[];
+    memset(edata, 0, end - edata);
 
     cons_init();                // init the console
 

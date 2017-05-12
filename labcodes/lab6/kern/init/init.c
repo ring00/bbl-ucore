@@ -21,8 +21,7 @@ static void lab1_switch_test(void);
 int
 kern_init(void) {
     extern char edata[], end[];
-    // clean up the bss section will zero static variables in vmalloc
-    // memset(edata, 0, end - edata);
+    memset(edata, 0, end - edata);
 
     cons_init();                // init the console
 

@@ -553,7 +553,7 @@ load_icode(unsigned char *binary, size_t size) {
             goto bad_cleanup_mmap;
         }
         if (ph->p_filesz == 0) {
-            continue ;
+            // continue ;
         }
     //(3.5) call mm_map fun to setup the new vma ( ph->p_va, ph->p_memsz)
         vm_flags = 0, perm = PTE_U | PTE_V;
