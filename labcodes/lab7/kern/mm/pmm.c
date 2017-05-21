@@ -43,8 +43,7 @@ const struct pmm_manager *pmm_manager;
  * always available at virtual address PGADDR(PDX(VPT), PDX(VPT), 0), to which
  * vpd is set bellow.
  * */
-pte_t *const vpt = (pte_t *)VPT;
-pde_t *const vpd = (pde_t *)PGADDR(PDX(VPT), PDX(VPT), 0);
+pde_t *const vpd = (pde_t *)PGADDR(PDX(VPT), ((PDX(VPT)) + 1), 0);
 
 static void check_alloc_page(void);
 static void check_pgdir(void);
@@ -213,8 +212,8 @@ void pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
-    // boot_pgdir[PDX(VPT)] = PADDR(boot_pgdir) | PTE_P | PTE_W;
-    boot_pgdir[PDX(VPT)] = pte_create(PPN(boot_cr3), READ_WRITE);
+    boot_pgdir[PDX(VPT)] = pte_create(PPN(boot_cr3), PAGE_TABLE_DIR);
+    boot_pgdir[PDX(VPT) + 1] = pte_create(PPN(boot_cr3), READ_WRITE);
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     // linear_addr KERNBASE~KERNBASE+KMEMSIZE = phy_addr 0~KMEMSIZE
@@ -662,11 +661,44 @@ void print_pgdir(void) {
                                      &right)) != 0) {
         cprintf("PDE(%03x) %08x-%08x %08x %s\n", right - left, left * PTSIZE,
                 right * PTSIZE, (right - left) * PTSIZE, perm2str(perm));
+
+        if ((perm & READ_WRITE_EXEC) != PAGE_TABLE_DIR) {
+            continue;
+        }
+
         size_t l, r = left * NPTEENTRY;
-        while ((perm = get_pgtable_items(left * NPTEENTRY, right * NPTEENTRY, r,
-                                         vpt, &l, &r)) != 0) {
-            cprintf("  |-- PTE(%05x) %08x-%08x %08x %s\n", r - l, l * PGSIZE,
-                    r * PGSIZE, (r - l) * PGSIZE, perm2str(perm));
+        uintptr_t i;
+        size_t old_l, old_r, old_perm = 0;
+        for (i = left; i < right; i++) {
+            while (1) {
+                perm = get_pgtable_items(
+                    i * NPTEENTRY, (i + 1) * NPTEENTRY, r,
+                    (uintptr_t *)(KADDR((uintptr_t)PDE_ADDR(vpd[i]))) -
+                        i * NPTEENTRY,
+                    &l, &r);
+
+                if (perm == 0) {
+                    break;
+                }
+
+                if (old_perm != perm) {
+                    if (old_perm != 0) {
+                        cprintf("  |-- PTE(%05x) %08x-%08x %08x %s\n",
+                                old_r - old_l, old_l * PGSIZE, old_r * PGSIZE,
+                                (old_r - old_l) * PGSIZE, perm2str(old_perm));
+                    }
+                    old_l = l;
+                    old_r = r;
+                    old_perm = perm;
+                } else {
+                    old_r = r;
+                }
+            }
+        }
+        if (old_perm != 0) {
+            cprintf("  |-- PTE(%05x) %08x-%08x %08x %s\n", old_r - old_l,
+                    old_l * PGSIZE, old_r * PGSIZE, (old_r - old_l) * PGSIZE,
+                    perm2str(old_perm));
         }
     }
     cprintf("--------------------- END ---------------------\n");
