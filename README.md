@@ -30,3 +30,7 @@ To build all projects at once, run the following commands
 $ cd labcodes
 $ ./gccbuildall.sh
 ```
+
+# Read the Docs
+
+Detailed documentation can be found [here](https://ring00.github.io/bbl-ucore/).
