@@ -378,10 +378,10 @@ int cputs(const char *str) {
 void kern_init(void) __attribute__((noreturn));
 void kern_init(void) {
     extern char edata[], end[];
-//    __asm__ __volatile__ ("la sp, $0" :: "m"(bootstacktop));
-    sbi_console_putchar=-2000;
-    const char *message = "(THU.CST) os is loading ...\n";
     memset((void *)edata, (char)0, (unsigned int)(end - edata));
+
+    sbi_console_putchar = -2000;
+    const char *message = "(THU.CST) os is loading ...\n";
     cprintf("%s\n\n", message);
     while (1)
         ;
