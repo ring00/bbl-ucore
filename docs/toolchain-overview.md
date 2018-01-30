@@ -591,3 +591,796 @@ static inline int emulate_read_csr(int num, uintptr_t mstatus, uintptr_t* result
 bbl从会从`mtime`中读取正确的时间然后返回，这里的`mtime`所指对象也是前面提到的HTIF的一部分。
 
 从kernel层面看，执行指令后当前时间被正确放入了寄存器中，可见这类模拟对操作系统层面是完全透明的。bbl还可使用这一技巧在不支持浮点数扩展指令集的环境中模拟浮点运算。
+
+
+
+## 附录：
+
+### 建立 gcc-for-riscv32
+
+#### 下载源码
+
+```
+$ sudo apt-get install autoconf automake autotools-dev curl libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev
+$ git clone https://github.com/riscv/riscv-tools.git
+$ git submodule update --init --recursive
+$ export RISCV=/path/to/install/riscv/toolchain
+```
+
+#### change build.comon
+
+```
+# Script to build RISC-V ISA simulator, proxy kernel, and GNU toolchain.
+# Tools will be installed to $RISCV.
+
+if [ "x$RISCV" = "x" ]
+then
+  echo "Please set the RISCV environment variable to your preferred install path."
+  exit 1
+fi
+
+# Use gmake instead of make if it exists.
+MAKE=`command -v gmake || command -v make`
+
+PATH="$RISCV/bin:$PATH"
+#GCC_VERSION=`gcc -v 2>&1 | tail -1 | awk '{print $3}'`
+
+set -e
+
+function build_project {
+  PROJECT="$1"
+  shift
+  echo
+  if [ -e "$PROJECT/build" ]
+  then
+    echo "Removing existing $PROJECT/build directory"
+    rm -rf "$PROJECT/build"
+  fi
+  mkdir -p "$PROJECT/build"
+  cd "$PROJECT/build"
+  echo "Configuring project $PROJECT"
+  ../configure $* > build.log
+  echo "Building project $PROJECT"
+  $MAKE -j8 >> build.log
+  echo "Installing project $PROJECT"
+  $MAKE install >> build.log
+  cd - > /dev/null
+}
+```
+
+#### change  build-rve32g.sh
+
+```
+#! /bin/bash
+#
+# Script to build RISC-V ISA simulator, proxy kernel, and GNU toolchain.
+# Tools will be installed to $RISCV.
+
+. build.common
+
+echo "Starting RISC-V Toolchain build process"
+
+build_project riscv-fesvr --prefix=$RISCV
+# build_project riscv-isa-sim --prefix=$RISCV --with-fesvr=$RISCV --with-isa=rv32g
+build_project riscv-gnu-toolchain --prefix=$RISCV --with-arch=rv32g --with-abi=ilp32d
+# CC= CXX= build_project riscv-pk --prefix=$RISCV --host=riscv32-unknown-elf
+echo -e "\\nRISC-V Toolchain installation completed!"
+
+```
+
+#### 编译安装
+
+```
+$ ./build-rv32g.sh
+```
+
+执行完毕后，会安装好gcc 7.2 for riscv32等工具。
+
+注意：目前spike模拟器不好使，改用qemu-system-riscv32。
+
+### 编译器参数
+
+- `-march=ISA` selects the architecture to target. This controls which instructions and registers are available for the compiler to use.
+- `-mabi=ABI` selects the ABI to target. This controls the calling convention (which arguments are passed in which registers) and the layout of data in memory.
+- `-mtune=CODENAME` selects the microarchitecture to target. This informs GCC about the performance of each instruction, allowing it to perform target-specific optimizations.
+
+
+
+#### The `-march` Argument
+
+ RISC-V User-Level ISA v2.2 defines three base ISAs that are currently supported by the toolchain:
+
+- RV32I: A load-store ISA with 32, 32-bit general-purpose integer registers.
+- RV32E: An embedded flavor of RV32I with only 16 integer registers.
+- RV64I: A 64-bit flavor of RV32I where the general-purpose integer registers are 64-bits wide.
+
+
+
+In addition to these base ISAs, a handful of extensions have been specified. The extensions that have been specified and are supported by the toolchain are:
+
+- M: Integer Multiplication and Division
+- A: Atomic Instructions
+- F: Single-Precision Floating-Point
+- D: Double-Precision Floating-Point
+- C: Compressed Instructions
+
+#### 例子
+
+test.c
+
+```
+    double dmul(double a, double b) {
+      return a * b;
+    }
+```
+
+will compile directly to a FP multiplication instruction when compiled with the D extension
+
+```
+    $ riscv64-unknown-elf-gcc test.c -march=rv64imafdc -mabi=lp64d -o- -S -O3
+    dmul:
+      fmul.d  fa0,fa0,fa1
+      ret
+```
+
+but will compile to an emulation routine without the D extension
+
+```
+    $ riscv64-unknown-elf-gcc test.c -march=rv64i -mabi=lp64 -o- -S -O3
+    dmul:
+      add     sp,sp,-16
+      sd      ra,8(sp)
+      call    __muldf3
+      ld      ra,8(sp)
+      add     sp,sp,16
+      jr      ra
+```
+
+#### The `-mabi` Argument
+
+RISC-V defines two integer ABIs and three floating-point ABIs, which together are treated as a single ABI string. The integer ABIs follow the standard ABI naming scheme:
+
+- `ilp32`: `int`, `long`, and pointers are all 32-bits long. `long long` is a 64-bit type, `char` is 8-bit, and `short` is 16-bit.
+- `lp64`: `long` and pointers are 64-bits long, while `int` is a 32-bit type. The other types remain the same as ilp32.
+
+while the floating-point ABIs are a RISC-V specific addition:
+
+- ”” (the empty string): No floating-point arguments are passed in registers.
+- `f`: 32-bit and smaller floating-point arguments are passed in registers. This ABI requires the F extension, as without F there are no floating-point registers.
+- `d`: 64-bit and smaller floating-point arguments are passed in registers. This ABI requires the D extension.
+
+
+
+Just like ISA strings, ABI strings are concatenated together and passed via the `-mabi` argument to GCC. In order to explain why the ISA and ABI should be treated as two separate arguments, let’s examine a handful of `-march`/`-mabi` combinations:
+
+- `-march=rv32imafdc -mabi=ilp32d`: Hardware floating-point instructions can be generated and floating-point arguments are passed in registers. This is like the `-mfloat-abi=hard` argument to ARM’s GCC.
+- `-march=rv32imac -mabi=ilp32`: No floating-point instructions can be generated and no floating-point arguments are passed in registers. This is like the `-mfloat-abi=soft` argument to ARM’s GCC.
+- `-march=rv32imafdc -mabi=ilp32`: Hardware floating-point instructions can be generated, but no floating-point arguments will be passed in registers. This is like the `-mfloat-abi=softfp`argument to ARM’s GCC, and is usually used when interfacing with soft-float binaries on a hard-float system.
+- `-march=rv32imac -mabi=ilp32d`: Illegal, as the ABI requires floating-point arguments are passed in registers but the ISA defines no floating-point registers to pass them in.
+
+#### 例子
+
+test.c
+
+```
+    double dmul(double a, double b) {
+      return b * a;
+    }
+```
+
+The first argument is the simplest one: if neither the ABI or ISA contains the concept of floating-point hardware then the C compiler cannot emit any floating-point-specific instructions. In this case, emulation routines are used to perform the computation and the arguments are passed in integer registers. As you can see, the double-precision arguments are passed in 32-bit integer register pairs, the order of arguments is swapped, `ra` is saved (as it’s callee saved), the emulation routine is called, the stack is unwound, and the result is returned (which is already in `a0,a1` from `__muldf3`).
+
+```
+    $ riscv64-unknown-elf-gcc test.c -march=rv32imac -mabi=ilp32 -o- -S -O3
+    dmul:
+      mv      a4,a2
+      mv      a5,a3
+      add     sp,sp,-16
+      mv      a2,a0
+      mv      a3,a1
+      mv      a0,a4
+      mv      a1,a5
+      sw      ra,12(sp)
+      call    __muldf3
+      lw      ra,12(sp)
+      add     sp,sp,16
+      jr      ra
+```
+
+The second case is the exact opposite of this one: everything is supported in hardware. In this case we can emit a single `fmul.d` instruction to perform the computation, which when register allocated correctly handles reversing the input arguments and producing the return value.
+
+```
+    $ riscv64-unknown-elf-gcc test.c -march=rv32imafdc -mabi=ilp32d -o- -S -O3
+    dmul:
+      fmul.d  fa0,fa1,fa0
+      ret
+```
+
+
+
+which produces the entire set of multilibs we support, along with their corresponding arguments:
+
+```
+riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 => rv32i/ilp32
+riscv64-unknown-elf-gcc -march=rv32ic -mabi=ilp32 => rv32i/ilp32
+riscv64-unknown-elf-gcc -march=rv32iac -mabi=ilp32 => rv32iac/ilp32
+riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 => rv32im/ilp32
+riscv64-unknown-elf-gcc -march=rv32imc -mabi=ilp32 => rv32im/ilp32
+riscv64-unknown-elf-gcc -march=rv32imac -mabi=ilp32 => rv32imac/ilp32
+riscv64-unknown-elf-gcc -march=rv32imafc -mabi=ilp32f => rv32imafc/ilp32f
+riscv64-unknown-elf-gcc -march=rv32imafdc -mabi=ilp32f => rv32imafc/ilp32f
+riscv64-unknown-elf-gcc -march=rv64imac -mabi=lp64 => rv64imac/lp64
+riscv64-unknown-elf-gcc -march=rv64imafdc -mabi=lp64d => rv64imafdc/lp64d
+```
+
+or for the Linux toolchain:
+
+```
+riscv64-unknown-linux-gnu-gcc -march=rv32ima -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imac -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imaf -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imafc -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imafd -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imafdc -mabi=ilp32 => lib32/ilp32
+riscv64-unknown-linux-gnu-gcc -march=rv32imafd -mabi=ilp32d => lib32/ilp32d
+riscv64-unknown-linux-gnu-gcc -march=rv32imafdc -mabi=ilp32d => lib32/ilp32d
+riscv64-unknown-linux-gnu-gcc -march=rv64ima -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imac -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imaf -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imafc -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imafd -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imafdc -mabi=lp64 => lib64/lp64
+riscv64-unknown-linux-gnu-gcc -march=rv64imafd -mabi=lp64d => lib64/lp64d
+riscv64-unknown-linux-gnu-gcc -march=rv64imafdc -mabi=lp64d => lib64/lp64d
+```
+
+
+
+- `rv32i/ilp32`: The simplest RISC-V ISA. While we don’t expect this to see much commercial use, we expect that it’ll get a lot of educational and hobbyist use. Also, it seems a bit odd not to support the base ISA well – as otherwise what’s the point of one :).
+- `rv32iac/ilp32`: Despite there being lots of tricks to produce small multipliers that are arbitrarily slow, some people seem to be allergic to hardware multiplication. This target is there to satisfy those people.
+- `rv32im/ilp32`: This exists largely to support cores retrofitted from other ISAs where simple memory systems preclude the implementation of both the A and C extensions.
+- `rv32imac/ilp32`: We expect this to get lots of use, it’s probably what you’d want to build if you’re building a standalone microcontroller chip.
+- `rv32imafc/ilp32f`: A 32-bit, floating-point target. The other option here would have been `rv32imafdc/ilp32d`, but we chose this instead under the assumption that if you could deal with having a 64-bit FPU that you’d probably just want to build a 64-bit core.
+- `rv64imac/lp64`: This will probably be the RISC-V ISA configuration that has the largest number of cores produced for the near future, as there aren’t any good options for deeply embedded cores (think power management units, IP control cores, etc) that can talk to SOCs with addresses spaces larger than 32 bits.
+- `rv64imafdc/lp64d`: The “full featured” embedded core. These probably won’t be produced as embedded cores directly, but we think that people will repurpose Linux-class cores as embedded cores as Linux isn’t that expensive on RISC-V.
+- ​
+
+### 编译ELF执行程序
+
+#### An Example of a Relocation in a C Program
+
+ C code:
+
+```
+long global_symbol[2];
+  
+int main() {
+  return global_symbol[0] != 0;
+}
+```
+
+Even though a single GCC invocation can produce a binary for this simple case, under the covers the GCC driver script is actually running the preprocessor, then the compiler, then the assembler and finally the linker. The `--save-temps` argument to GCC allows users to see all these intermediate files, and is a useful argument for poking around inside the toolchain.
+
+```
+$ riscv64-unknown-linux-gnu-gcc relocation.c -o relocation -O3 –save-temps
+```
+
+Each step in this run of the GCC wrapper script generates a file:
+
+- `relocation.i`: The preprocessed source, which expands any preprocessor directives (things like `#include` or `#ifdef`).
+- `relocation.s`: The output of the actual compiler, which is an assembly file (a text file in the RISC-V assembly format).
+- `relocation.o`: The output of the assembler, which is an un-linked object file (an ELF file, but not an executable ELF).
+- `relocation`: The output of the linker, which is a linked executable (an executable ELF file).
+
+The first step is to run the preprocessor. Since this is a simple source file with no preprocessor macros, the preprocessor run is pretty boring: all it does is emit some directives to be used if debugging information is later generated:
+
+```
+$ cat relocation.i
+# 1 "relocation.c"
+# 1 "built-in"
+# 1 "command-line"
+# 31 "command-line"
+# 1 "/scratch/palmer/work/upstream/riscv-gnu-toolchain/build/install/sysroot/usr/include/stdc-predef.h" 1 3 4
+# 32 "command-line" 2
+# 1 "relocation.c"
+long global_symbol;
+  
+int main() {
+  return global_symbol != 0;
+}
+```
+
+The preprocessed output is then fed through the compiler, which generates a assembly file. It is at this point at which we begin to see why relocations are necessary. This file is plain-text that contains RISC-V assembly code and therefore is easy to read, so let’s take a look right now:
+
+```
+$ cat relocation.s
+main:
+  lui   a5,%hi(global_symbol)
+  ld    a0,%lo(global_symbol)(a5)
+  snez  a0,a0
+  ret
+```
+
+These addressing modes （`%hi(global_symbol)`and `%lo(global_symbol)(a5)`.）exist to allow the compiler to address global symbols. But the actual address of those global symbols cannot be known until link time. The next link in the toolchain is the assembler, which takes in the assembly file from above and produces an ELF object file that has not yet been linked. You can examine these object files with objdump, which I’ve done below:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -t -r relocation.o
+  
+relocation.o:     file format elf64-littleriscv
+  
+SYMBOL TABLE:
+0000000000000000 l    df *ABS*  0000000000000000 relocation.c
+0000000000000000 l    d  .text  0000000000000000 .text
+0000000000000000 l    d  .data  0000000000000000 .data
+0000000000000000 l    d  .bss   0000000000000000 .bss
+0000000000000000 l    d  .text.startup  0000000000000000 .text.startup
+0000000000000000 l    d  .comment       0000000000000000 .comment
+0000000000000000 g     F .text.startup  000000000000000e main
+0000000000000010       O *COM*  0000000000000008 global_symbol
+  
+Disassembly of section .text.startup:
+  
+0000000000000000 main:
+   0:   000007b7                lui     a5,0x0
+                        0: R_RISCV_HI20 global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007b503                ld      a0,0(a5) # 0 main
+                        4: R_RISCV_LO12_I       global_symbol
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00a03533                snez    a0,a0
+   c:   8082                    ret
+```
+
+Now is the first point at which you get to explicitly see a relocation (which are only shown when the `-r`argument is passed to objdump). Here we can see four RISC-V-specific relocations in two pairs: a`R_RISCV_HI20`+`R_RISCV_RELAX` pair for the `lui` and a `R-RISCV_LO12_I`+`R_RISCV_RELAX` pair for the `ld`. The `R_RISCV_RELAX` relocations exist solely to signify that it is legal to perform linker relaxation on the previous relocation. Since we’re not talking about linker relaxation in this blog entry, we can just ignore those entries for now.
+
+The other two relocations pair explicitly with an addressing mode present in the RISC-V ISA: `R_RISCV_HI20` pairs with a U-format immediate while `R_RISCV_LO12_I` pairs with an I-format immediate. In general, you’ll find that every addressing mode with an immediate will have at least one relocation that fills out that immediate – sometimes there’ll be a handful more if that instruction format is used to link against more complicated forms of symbols as well (for example, PIC or TLS relocations).
+
+Before we get too deep into relocations, let’s quickly examine how the toolchain works when it’s possible to fill out a relocation correctly. The next link in the toolchain is the linker, which consumes the relocations generated by the assembler to fill our the relevant bits in the output ELF executable. The program now has all the glibc startup code so it’s become quite large. Thus, I’m only posting the relevant snippets below:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -t -r relocation
+relocation:     file format elf64-littleriscv
+  
+SYMBOL TABLE:
+0000000000012038 g     O .bss 0000000000000010              global_symbol
+...
+  
+Disassembly of section .text:
+  
+0000000000010330 main:
+ 10330:       67c9                    lui     a5,0x12
+ 10332:       0387b503                ld      a0,56(a5) # 12038 global_symbol   56=0x38
+ 10336:       00a03533                snez    a0,a0
+ 1033a:       8082                    ret
+```
+
+#### The `relocation truncated to fit` Error Message
+
+Now that you know a bit about what relocations are we can discuss most people’s only exposure to relocations: the `relocation truncated to fit` error message that appears when linking. It’s hard to explain this message to people who don’t understand relocations, but if you understand what a relocation is then it’s not actually that tricky of an error message.
+
+In order to explain the error message, we’ll start with an extremely simple program. In this case we don’t want anything from the C library to show up in our error message so we’re defining `_start` instead of `main` and then avoiding any standard library objects by passing `-nostdlib -nostartfiles` to GCC – this program won’t actually work, but it’ll serve to explain what’s going on. Moving the text section with `-Wl,-Ttext-segment,0x80000000` will actually trigger the bug, you’ll see why below:
+
+```
+$ cat reloc_fail.c
+long global_symbol;
+int _start() {
+  return global_symbol;
+}
+$ riscv64-unknown-linux-gnu-gcc reloc_fail.c -o reloc_fail -O3 -nostartfiles -nostdlib --save-temps  -Wl,-Ttext-segment,0x80000000
+reloc_fail.o: In function `_start':
+reloc_fail.c:(.text+0x0): relocation truncated to fit: R_RISCV_HI20 against symbol `global_symbol' defined in COMMON section in reloc_fail.o
+/scratch/palmer/work/20170725-binutils-2.29/install/bin/../lib/gcc/riscv64-unknown-linux-gnu/7.1.1/../../../../riscv64-unknown-linux-gnu/bin/ld: final link failed: Symbol needs debug section which does not exist
+collect2: error: ld returned 1 exit status
+```
+
+First, let’s focus on only the important part of the error message and ignore all the cruft that’s not actually relevant. The actual error you want to look at here is:
+
+```
+reloc_fail.c:(.text+0x0): relocation truncated to fit: R_RISCV_HI20 against symbol `global_symbol'
+```
+
+which simply states that the compiler generated a `R_RISCV_HI20` relocation against the address `global_symbol`, but that the linker was unable fit the symbol’s full address into the bits specified by that relocation. The phrase “truncated to fit” is a bit odd: what the linker is actually saying is that the address in the relocation must be truncated to fit into the bits allocated by the relocation if it was to fit, but since this is an error the linker isn’t really truncating anything.
+
+In order to start really delving into the “why” of the error message, we need to first look at the input to the linker, which in this case is the object file generated by the assembler. Like the above example, we need the relocation because the compiler needs to reference a global symbol that it can’t know the address for.
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -r reloc_fail.o
+reloc_fail.o:     file format elf64-littleriscv
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:   000007b7                lui     a5,0x0
+                        0: R_RISCV_HI20 global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007a503                lw      a0,0(a5) # 0 <_start>
+                        4: R_RISCV_LO12_I       global_symbol
+                        4: R_RISCV_RELAX        *ABS*
+   8:   8082                    ret
+```
+
+We modified the linker to omit the range check when performing relocations with the patch shown below:
+
+```
+$ git diff
+diff --git a/bfd/elfnn-riscv.c b/bfd/elfnn-riscv.c
+index 3c04507623c3..f8a97411de35 100644
+--- a/bfd/elfnn-riscv.c
++++ b/bfd/elfnn-riscv.c
+@@ -1492,8 +1492,6 @@ perform_relocation (const reloc_howto_type *howto,
+     case R_RISCV_GOT_HI20:
+     case R_RISCV_TLS_GOT_HI20:
+     case R_RISCV_TLS_GD_HI20:
+-      if (ARCH_SIZE > 32 && !VALID_UTYPE_IMM (RISCV_CONST_HIGH_PART (value)))
+-       return bfd_reloc_overflow;
+       value = ENCODE_UTYPE_IMM (RISCV_CONST_HIGH_PART (value));
+       break;
+```
+
+With the above patch, the linker can generate an incorrect object file that we can inspect, which I’ve shown below:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -t reloc_fail
+reloc_fail:     file format elf64-littleriscv
+
+SYMBOL TABLE:
+00000000800000b0 l    d  .text  0000000000000000 .text
+00000000800010c0 l    d  .bss   0000000000000000 .bss
+0000000000000000 l    d  .comment       0000000000000000 .comment
+0000000000000000 l    df *ABS*  0000000000000000 reloc_fail.c
+00000000800018ba g       .text  0000000000000000 __global_pointer$
+00000000800010c0 g     O .bss   0000000000000008 global_symbol
+00000000800000b0 g     F .text  000000000000000a _start
+00000000800010ba g       .bss   0000000000000000 __bss_start
+00000000800010ba g       .bss   0000000000000000 _edata
+00000000800010c8 g       .bss   0000000000000000 _end
+
+Disassembly of section .text:
+
+00000000800000b0 <_start>:
+    800000b0:   800017b7                lui     a5,0x80001
+    800000b4:   0c07a503                lw      a0,192(a5) # ffffffff800010c0 <__global_pointer$+0xfffffffefffff806>
+    800000b8:   8082                    ret
+```
+
+As we can clearly see, the instructions that load the value of `global_symbol` do not actually match the address of `global_symbol` as listed by the symbol table, which is exactly what the `relocation truncated to fit` error message is trying to say. In the particular case of the`R_RISCV_HI20`+`R_RISCV_LO12_I` relocation pair the largest absolute address that can be generated is `0x7FFFFFFF` – remember U-type immediates are signed on RISC-V, so any larger absolute address overflows on RV64.
+
+### Link Relaxation
+
+#### concept of Link relaxation
+
+[[https://en.wikipedia.org/wiki/Linker_(computing)#Relaxation]]
+
+As the compiler has no information on the layout of objects in the final output, it cannot take advantage of shorter or more efficient instructions that place a requirement on the address of another object. For example, a jump instruction can reference an absolute address or an offset from the current location, and the offset could be expressed with different lengths depending on the distance to the target. By generating the most conservative instruction (usually the largest relative or absolute variant, depending on platform) and adding *relaxation hints*, it is possible to substitute shorter or more efficient instructions during the final link. This step can be performed only after all input objects have been read and assigned temporary addresses; the **linker relaxation** pass subsequently reassigns addresses, which may in turn allow more relaxations to occur. In general, the substituted sequences are shorter, which allows this process to always converge on the best solution given a fixed order of objects; if this is not the case, relaxations can conflict, and the linker needs to weigh the advantages of either option.
+
+While instruction relaxation typically occurs at [link-time](https://en.wikipedia.org/wiki/Link-time), inner-module relaxation can already take place as part of the optimising process at [compile-time](https://en.wikipedia.org/wiki/Compile-time). In some cases, relaxation can also occur at [load-time](https://en.wikipedia.org/wiki/Load-time) as part of the relocation process or combined with [dynamic dead-code elimination](https://en.wikipedia.org/wiki/Dynamic_dead-code_elimination) techniques.
+
+#### example
+
+Linker relaxation is a mechanism for optimizing programs at link-time, as opposed to traditional program optimization which happens at compile-time. Linker relaxation is a concept so important it has greatly shaped the design of the RISC-V ISA.  Below is a example:
+
+```
+$ cat test.c
+int func(int a) __attribute__((noinline));
+int func(int a) {
+  return a + 1;
+}
+
+int _start(int a) {
+  return func(a);
+}
+$ riscv64-unknown-linux-gnu-gcc test.c  -o test -O3 -nostartfiles -nostdlib --save-temps  -Wl,-Ttext-segment,0x8000000
+$ riscv64-unknown-linux-gnu-objdump -d -r test.o
+test.o:     file format elf64-littleriscv
+Disassembly of section .text:
+
+0000000000000000 <func>:
+   0:   2505                    addiw   a0,a0,1
+   2:   8082                    ret
+
+0000000000000004 <_start>:
+   4:   00000317                auipc   ra,0x0
+                        4: R_RISCV_CALL func
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00030067                jr      ra
+```
+
+You can now see a new RISC-V relocation: `R_RISCV_CALL`. This relocation sits between an `auipc` and a `jalr` instruction (here disassembled as the `jr` shorthand as this is a tail call) and points to the symbol that should be the target of the jump, in this case the `func` symbol. The `R_RISCV_CALL` relocation is paired with a `R_RISCV_RELAX` relocation, which allows the linker to relax this relocation pair
+
+In order to understand relaxation, we first must examine the RISC-V ISA a bit. In the RISC-V ISA there are two unconditional control transfer instructions: `jalr`, which jumps to an absolute address as specified by an immediate offset from a register; and `jal`, which jumps to a pc-relative offset as specified by an immediate. The only differences between the `auipc`+`jalr` pair in this object file and a single `jal` are that the pair can address a 32-bit signed offset from the current PC while the `jal` can only address a 21-bit signed offset from the current PC, and that the `jal` instruction is half the size (which is a good proxy for twice the speed).
+
+As the compiler cannot know if the offset between `_start` and `func` will fit within a 21-bit offset, it is forced to generate the longer call. We don’t want to impose this cost in cases where it’s not necessary, so we instead optimize this case in the linker. Let’s look at the executable to see the result of linker relaxation:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -r test
+test:     file format elf64-littleriscv
+
+Disassembly of section .text:
+
+0000000000010078 <func>:
+   10078:       2505                    addiw   a0,a0,1
+   1007a:       8082                    ret
+
+000000000001007c <_start>:
+   1007c:       ffdff06f                j       10078 <func>
+```
+
+As you can see, the linker knows that the call from `_start` to `func` fits within the 21-bit offset of the `jal` instruction and converts it to a single instruction.
+
+#### The RISC-V Implementation of Linker Relaxation
+
+While the concept of linker relaxation is fairly straight-forward, there are a lot of tricky details that need to be done correctly in order to ensure the linker produces the correct symbol addresses everywhere. To the best of my knowledge, the RISC-V BFD port make the most aggressive use of linker relaxations: essentially no `.text` section symbol addresses are known until link time. 
+
+The actual implementation of linker relaxation is, as you’d expect, fairly esoteric. The code lives in `_bfd_riscv_relax_section` inside `binutils-gdb/bfd/elfnn-riscv.c`, which looks roughly like the following:
+
+```
+_bfd_riscv_relax_section:
+  if section shouldn't be relaxed:
+    return DONE
+  for each relocation:
+    if relocation is relaxable:
+      store per-relocation function pointer
+    read the symbol table
+    obtain the symbol's address
+    call the per-relocation function
+```
+
+Essentially, all it’s doing is some shared bookkeeping code and then calling a relocation-specific function to actually relax the relocation. The relax functions all look somewhat similar, so I’ll show an example of the function that relaxes `R_RISCV_CALL` relocation that was discussed above
+
+```
+_bfd_riscv_relax_call:
+  compute a pessimistic address range
+  if relocation doesn't fit into a UJ-type immediate:
+    return DONE
+  compute offsets for various short jumps
+  if RVC is enabled and the relocation fits in a C.JAL:
+    convert the jump to c.jal
+  if relocation fits in an JAL:
+    convert the jump to a jal
+  if call target is near absolute address 0:
+    convert the jump to a x0-offset JALR
+  delete the JALR, as it's not necessary any more
+```
+
+
+
+### The RISC-V Code Models
+
+The RISC-V ISA was designed to be both simple and modular. In order to achieve these design goals, RISC-V minimizes one of the largest costs in implementing complex ISAs: addressing modes. Addressing modes are expensive both in small designs (due to decode cost) and large designs (due to implicit dependencies). RISC-V only has three addressing modes:
+
+- PC-relative, via the `auipc`, `jal` and `br*` instructions.
+- Register-offset, via the `jalr`, `addi` and all memory instructions.
+- Absolute, via the `lui` instruction (though arguably this is just `x0`-offset).
+
+#### concept of code model
+
+Most programs do not fill the entire address space available to them with symbols (most don’t fill it at all, but those that do tend to fill their address space with heap). ISAs tend to take advantage of this locality by implementing shorter addressing modes in hardware and relying on software to provide larger address modes. The code model determines which software addressing mode is used, and, therefore, what constraints are enforced on the linked program. Software addressing modes determine how the programmer sees addresses, as opposed to hardware addressing modes which determine how address bits in instructions are handled.
+
+Code models are necessary due to the split between the compiler and the linker: when generating an unlinked object, the complier doesn’t know the absolute address of any symbol but it still must know what addressing mode to use as some addressing modes may require scratch registers to operate. As the compiler cannot generate actual addressing code, it generates addressing templates (known as[relocations](https://www.sifive.com/blog/2017/08/21/all-aboard-part-2-relocations)) that the linker can then fix up once it knows the actual addresses of each symbol. The code model determines what these addressing templates look like, and thus which relocations are emitted.
+
+#### example
+
+code:
+
+```
+long global_symbol[2];
+
+int main() {
+  return global_symbol[0] != 0;
+}
+```
+
+compile:
+
+```
+$ riscv64-unknown-linux-gnu-gcc cmodel.c -o cmodel -O3 --save-temps
+```
+
+Each step in this run of the GCC wrapper script generates a file:
+
+- `cmodel.i`: The preprocessed source, which expands any preprocessor directives (things like `#include` or `#ifdef`).
+- `cmodel.s`: The output of the actual compiler, which is an assembly file (a text file in the RISC-V assembly format).
+- `cmodel.o`: The output of the assembler, which is an unlinked object file (an ELF file, but not an executable ELF).
+- `cmodel`: The output of the linker, which is a linked executable (an executable ELF file).
+
+cmodel.i
+
+```
+# 1 "cmodel.c"
+# 1 "built-in"
+# 1 "command-line"
+# 31 "command-line"
+# 1 "/scratch/palmer/work/upstream/riscv-gnu-toolchain/build/install/sysroot/usr/include/stdc-predef.h" 1 3 4
+# 32 "command-line" 2
+# 1 "cmodel.c"
+long global_symbol;
+
+int main() {
+  return global_symbol != 0;
+}
+```
+
+cmodel.s
+
+```
+main:
+  lui   a5,%hi(global_symbol)
+  ld    a0,%lo(global_symbol)(a5)
+  snez  a0,a0
+  ret
+```
+
+The generated assembly contains a pair of instructions to address `global_symbol`: `lui` and then `ld`. This imposes a constraint on the address that `global_symbol` can take on: it must be addressable by a 32-bit signed absolute constant (not 32-bit offset from some register or the PC, but actually a 32-bit address). Note that the restriction on symbol addresses is not related to the size of a pointer on this architecture: specifically pointers may still be 64 bits here, but all global symbols must be addressable by a 32-bit absolute address.
+
+After the compiler generates assembly, the GCC wrapper script calls the assembler to generate an object file. This file is an ELF binary, which can be read with a variety of tools provided by Binutils. In case we’ll use `objdump` to show the symbol table, disassemble the text section and show the relocations generated by the assembler:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -t -r cmodel.o
+
+cmodel.o:     file format elf64-littleriscv
+
+SYMBOL TABLE:
+0000000000000000 l    df *ABS*  0000000000000000 cmodel.c
+0000000000000000 l    d  .text  0000000000000000 .text
+0000000000000000 l    d  .data  0000000000000000 .data
+0000000000000000 l    d  .bss   0000000000000000 .bss
+0000000000000000 l    d  .text.startup  0000000000000000 .text.startup
+0000000000000000 l    d  .comment       0000000000000000 .comment
+0000000000000000 g     F .text.startup  000000000000000e main
+0000000000000010       O *COM*  0000000000000008 global_symbol
+
+Disassembly of section .text.startup:
+
+0000000000000000 main:
+   0:   000007b7                lui     a5,0x0
+                        0: R_RISCV_HI20 global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007b503                ld      a0,0(a5) # 0 main
+                        4: R_RISCV_LO12_I       global_symbol
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00a03533                snez    a0,a0
+   c:   8082                    ret
+```
+
+At this point we have an object file, but we still don’t know the actual addresses of any global symbols. This is where there’s a bit of overlap in the roles of each component of the toolchain: it’s the assembler’s job to convert textual instructions into bits, but in the cases where those bits depend on the address of a global symbol (like the `lui` in the code above, for example) the assembler can’t know what those bits should actually be. In order to allow the linker to fill out these bits in the final executable object file, the assembler generates entries in a relocation table for every bit range the linker is expected to fill out. Relocations define a bit range that the linker is meant to fill out when linking the code together. The specific definition of any relocation type present in the text section is ISA-specific, the RISC-V definitions can be found in our [ELF psABI document](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md).
+
+After assembling the program, the GCC wrapper script runs the linker to generate an executable. This is another ELF file, but this time it’s a full executable. Since this contains lots of C library code, I’m going to show only the relevant fragments of it here:
+
+```
+$ riscv64-unknown-linux-gnu-objdump -d -t -r cmodel
+cmodel:     file format elf64-littleriscv
+
+SYMBOL TABLE:
+0000000000012038 g     O .bss    0000000000000010              global_symbol
+...
+
+Disassembly of section .text:
+
+0000000000010330 main:
+ 10330:       67c9                    lui     a5,0x12
+ 10332:       0387b503                ld      a0,56(a5) # 12038 global_symbol
+ 10336:       00a03533                snez    a0,a0
+ 1033a:       8082                    ret
+```
+
+Until now, this example has been using RISC-V’s default code model [medlow](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-does--mcmodelmedlow-mean). In order to demonstrate a bit more specifically what a code model is it’s probably best to contrast this with our other code model, [medany](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-does--mcmodelmedany-mean). The difference can be summed up with a single example output:
+
+```
+0000000000000000 main:
+   0:   00000797                auipc   a5,0x0
+                        0: R_RISCV_PCREL_HI20   global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007b503                ld      a0,0(a5) # 0 main
+                        4: R_RISCV_PCREL_LO12_I .LA0
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00a03533                snez    a0,a0
+   c:   8082                    ret
+```
+
+Specifically, the [medany](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-does--mcmodelmedany-mean) code model generates `auipc`/`ld` pairs to refer to global symbols, which allows the code to be linked at any address; while [medlow](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-does--mcmodelmedlow-mean) generates `lui`/`ld` pairs to refer to global symbols, which restricts the code to be linked around address zero. They both generate 32-bit signed offsets for referring to symbols, so they both restrict the generated code to being linked within a 2GiB window.
+
+#### What does -mcmodel=medlow mean?
+
+This selects the medium-low [code model](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-is-a-code-model), which means program and its statically defined symbols must lie within a single 2 GiB address range and must lie between absolute addresses -2 GiB and +2 GiB. Addressing for global symbols uses `lui`/`addi` instruction pairs, which emit the `R_RISCV_HI20`/`R_RISCV_LO12_I` sequences. Here’s an example of some generated code using the medlow code model:
+
+```
+$ cat cmodel.c
+long global_symbol[2];
+
+int main() {
+  return global_symbol[0] != 0;
+}
+
+$ riscv64-unknown-linux-gnu-gcc cmodel.c -o cmodel -O3 --save-temps -mcmodel=medlow
+
+$ cat cmodel.s
+main:
+        lui     a5,%hi(global_symbol)
+        ld      a0,%lo(global_symbol)(a5)
+        snez    a0,a0
+        ret
+
+$ riscv64-unknown-linux-gnu-objdump -d -r cmodel.o
+cmodel.o:     file format elf64-littleriscv
+
+Disassembly of section .text.startup:
+
+0000000000000000 main:
+   0:   000007b7                lui     a5,0x0
+                        0: R_RISCV_HI20 global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007b503                ld      a0,0(a5) # 0 main
+                        4: R_RISCV_LO12_I       global_symbol
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00a03533                snez    a0,a0
+   c:   8082                    ret
+
+$ riscv64-unknown-linux-gnu-objdump -d -r cmodel
+Disassembly of section .text:
+
+0000000000010330 main:
+   10330:       67c9                    lui     a5,0x12
+   10332:       0387b503                ld      a0,56(a5) # 12038 global_symbol
+   10336:       00a03533                snez    a0,a0
+   1033a:       8082                    ret
+```
+
+#### What does -mcmodel=medany mean?
+
+This selects the medium-any [code model](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-is-a-code-model), which means the program and its statically defined symbols must lie within any single 2 GiB address range. Addressing for global symbols uses `lui`/`addi`instruction pairs, which emit the `R_RISCV_PCREL_HI20`/`R_RISCV_PCREL_LO12_I` sequences. Here’s an example of some generated code using the medany code model (with `-mexplicit-relocs`, in order to make this match the [-mcmodel=medlow](https://www.sifive.com/blog/2017/09/11/all-aboard-part-4-risc-v-code-models/?__hstc=753710.e46c7b81c636c9b6fa4ecb288ea3aebf.1517276509822.1517276509822.1517276509822.1&__hssc=753710.1.1517276509822&__hsfp=708807989#what-does--mcmodelmedlow-mean) example a bit more cleanly):
+
+```
+$ cat cmodel.c
+long global_symbol[2];
+
+int main() {
+  return global_symbol[0] != 0;
+}
+
+$ riscv64-unknown-linux-gnu-gcc cmodel.c -o cmodel -O3 --save-temps -mcmodel=medany -mexplicit-relocs
+
+$ cat cmodel.s
+main:
+        .LA0: auipc     a5,%pcrel_hi(global_symbol)
+        ld      a0,%pcrel_lo(.LA0)(a5)
+        snez    a0,a0
+        ret
+
+$ riscv64-unknown-linux-gnu-objdump -d -r cmodel.o
+cmodel.o:     file format elf64-littleriscv
+
+SYMBOL TABLE:
+0000000000000000 l    df *ABS*  0000000000000000 cmodel.c
+0000000000000000 l    d  .text  0000000000000000 .text
+0000000000000000 l    d  .data  0000000000000000 .data
+0000000000000000 l    d  .bss   0000000000000000 .bss
+0000000000000000 l    d  .text.startup  0000000000000000 .text.startup
+0000000000000000 l       .text.startup  0000000000000000 .LA0
+0000000000000000 l    d  .comment       0000000000000000 .comment
+0000000000000000 g     F .text.startup  000000000000000e main
+0000000000000010       O *COM*  0000000000000008 global_symbol
+
+Disassembly of section .text.startup:
+
+0000000000000000 main:
+   0:   00000797                auipc   a5,0x0
+                        0: R_RISCV_PCREL_HI20   global_symbol
+                        0: R_RISCV_RELAX        *ABS*
+   4:   0007b503                ld      a0,0(a5) # 0 main
+                        4: R_RISCV_PCREL_LO12_I .LA0
+                        4: R_RISCV_RELAX        *ABS*
+   8:   00a03533                snez    a0,a0
+   c:   8082                    ret
+
+$ riscv64-unknown-linux-gnu-objdump -d -r cmodel.o
+Disassembly of section .text:
+
+0000000000010330 main:
+   10330:       00002797                auipc   a5,0x2
+   10334:       d087b503                ld      a0,-760(a5) # 12038 global_symbol
+   10338:       00a03533                snez    a0,a0
+   1033c:       8082                    ret
+        ...
+```
+
+Note that that `-mcmodel=medany` currently defaults to `-mno-explicit-relocs`, which can have an appreciable performance effect. There’s a bit of nuance in that performance effect, so we’ll discuss it in a later blog.

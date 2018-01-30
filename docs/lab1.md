@@ -372,3 +372,97 @@ uintptr_t timer_interrupt()
 首先清空`mie`中的Machine Timer Interrupt Enable Bit，然后设置`mip`中的Supervisor Timer Interrupt Pending Bit (STIP)，返回S-mode后，由于`sip`寄存器中STIP被置为1，立即引发一个时钟中断。在ISR中，我们调用的`clock_set_next_event`会调用`sbi_set_timer`并被bbl中的`mcall_set_timer`处理，从而清空`sip`中的STIP位，又回到了开始的状态。
 
 以上对时钟中断的处理流程和Spike模拟器的undocumented feature耦合十分紧密，处理SEE和模拟器层的读者应特别注意。
+
+
+
+## 附录
+
+编译最新的riscv-pk, qemu, 
+
+### 0. install gcc for rv32
+
+参看 [[toolchain-overview.md]]
+
+### 1. setenv
+
+```
+export RISCV=/chydata/thecode/riscv-related/install-rv32
+export PATH=$RISCV/bin:$PATH
+```
+
+### 2. build qemu
+
+```
+git clone https://github.com/riscv/riscv-qemu.git
+cd riscv-qemu
+./configure --target-list=riscv32-softmmu
+make
+cp riscv32-softmmu/qemu-system-riscv32 /chydata/thecode/riscv-related/install-rv32/bin
+```
+
+### 3. build bbl
+
+```
+git clone https://github.com/riscv/riscv-pk.git
+cd riscv-pk
+mkdir build
+cd build
+../configure \
+    --enable-logo \
+    --enable-print-device-tree \
+    --host=riscv32-unknown-elf \
+    --with-payload=../../../ucore-lab1-rv32
+make
+```
+
+### 4. run qemu
+
+```
+qemu-system-riscv32 -nographic -machine virt -kernel bbl
+```
+
+能看到logo和device tree
+
+```
+              vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+                  vvvvvvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrr       vvvvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrrrrr      vvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrrrrrrr    vvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrrrrrrr    vvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrrrrrrr    vvvvvvvvvvvvvvvvvvvvvvvv
+rrrrrrrrrrrrrrrr      vvvvvvvvvvvvvvvvvvvvvv  
+rrrrrrrrrrrrr       vvvvvvvvvvvvvvvvvvvvvv    
+rr                vvvvvvvvvvvvvvvvvvvvvv      
+rr            vvvvvvvvvvvvvvvvvvvvvvvv      rr
+rrrr      vvvvvvvvvvvvvvvvvvvvvvvvvv      rrrr
+rrrrrr      vvvvvvvvvvvvvvvvvvvvvv      rrrrrr
+rrrrrrrr      vvvvvvvvvvvvvvvvvv      rrrrrrrr
+rrrrrrrrrr      vvvvvvvvvvvvvv      rrrrrrrrrr
+rrrrrrrrrrrr      vvvvvvvvvv      rrrrrrrrrrrr
+rrrrrrrrrrrrrr      vvvvvv      rrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrr      vv      rrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrr          rrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrr      rrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrrrr
+
+       INSTRUCTION SETS WANT TO BE FREE
+ {
+  #address-cells = <0x00000002>;
+  #size-cells = <0x00000002>;
+  compatible = "riscv-virtio";
+  model = "riscv-virtio,qemu";
+  chosen {
+    bootargs = "";
+    stdout-path = <0x2f756172 0x74403130 0x30303030>;
+  }
+  uart@10000000 {
+    interrupts = <0x0000000a>;
+    interrupt-parent = <0x00000002>;
+    clock-frequency = <0x00384000>;
+    reg = <0x00000000 0x10000000 0x00000000 0x00000100>;
+    compatible = "ns16550a";
+  }
+....
+```
+
