@@ -417,11 +417,26 @@ make
 
 ### 4. run qemu
 
+当前qemu支持的riscv 开发板有：
+
+```
+qemu-system-riscv32 -machine help
+Supported machines are:
+none                 empty machine
+sifive_e300          RISC-V Board compatible with SiFive E300 SDK
+sifive_u500          RISC-V Board compatible with SiFive U500 SDK
+spike_v1.10          RISC-V Spike Board (Privileged ISA v1.10)
+spike_v1.9           RISC-V Spike Board (Privileged ISA v1.9.1) (default)
+virt                 RISC-V VirtIO Board (Privileged spec v1.10)
+```
+
+执行
+
 ```
 qemu-system-riscv32 -nographic -machine virt -kernel bbl
 ```
 
-能看到logo和device tree
+能看到logo和bbl输出的device tree
 
 ```
               vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -488,3 +503,208 @@ Device Tree由一系列被命名的结点（node）和属性（property）组成
 
 - [ARM Linux 3.x的设备树（Device Tree）](http://www.cnblogs.com/wi100sh/p/4597898.html)
 - http://www.wowotech.net/linux_kenrel/dt_basic_concept.html
+
+
+
+### BIOS in RISC-V
+
+```
+位于0x1000处的BIOS代码
+/* reset vector */
+    uint32_t reset_vec[8] = {
+        0x00000297,                  /* 1:  auipc  t0, %pcrel_hi(dtb) */
+        0x02028593,                  /*     addi   a1, t0, %pcrel_lo(1b) */
+        0xf1402573,                  /*     csrr   a0, mhartid  */
+#if defined(TARGET_RISCV32)
+        0x0182a283,                  /*     lw     t0, 24(t0) */
+#elif defined(TARGET_RISCV64)
+        0x0182b283,                  /*     ld     t0, 24(t0) */
+#endif
+        0x00028067,                  /*     jr     t0 */
+        0x00000000,
+        memmap[VIRT_DRAM].base,      /* start: .dword memmap[VIRT_DRAM].base */
+        0x00000000,
+                                     /* dtb: */
+    };
+    接下来的内容是Device Tree Binary的内容，包括CPU/MEM/UART/INTR等
+    
+在 gdb中看到的代码如下：
+(gdb) x/10i 0x1000
+=> 0x1000:	auipc	t0,0x0
+   0x1004:	addi	a1,t0,32
+   0x1008:	csrr	a0,mhartid
+   0x100c:	lw	t0,24(t0)
+   0x1010:	jr	t0
+   0x1014:	unimp
+   0x1016:	unimp
+   0x1018:	unimp
+   0x101a:	0x8000
+   0x101c:	unimp
+当执行到0x1010时， t0=0x80000000 即bbl被加载到的起始地址，此时a0=0, a1=0x1020 即dtb的起始地址
+```
+
+在qemu-system-riscv32模拟的virt board的dbt的内容是：
+
+```
+/dts-v1/;
+// magic:		0xd00dfeed
+// totalsize:		0x10000 (65536)
+// off_dt_struct:	0x40
+// off_dt_strings:	0x848
+// off_mem_rsvmap:	0x30
+// version:		17
+// last_comp_version:	16
+// boot_cpuid_phys:	0x0
+// size_dt_strings:	0x129
+// size_dt_struct:	0x808
+
+/ {
+    #address-cells = <0x00000002>;
+    #size-cells = <0x00000002>;
+    compatible = "riscv-virtio";
+    model = "riscv-virtio,qemu";
+    chosen {
+        bootargs = [00];
+        stdout-path = "/uart@10000000";
+    };
+    uart@10000000 {
+        interrupts = <0x0000000a>;
+        interrupt-parent = <0x00000002>;
+        clock-frequency = <0x00384000>;
+        reg = <0x00000000 0x10000000 0x00000000 0x00000100>;
+        compatible = "ns16550a";
+    };
+    virtio_mmio@10008000 {
+        interrupts = <0x00000008>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10008000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10007000 {
+        interrupts = <0x00000007>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10007000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10006000 {
+        interrupts = <0x00000006>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10006000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10005000 {
+        interrupts = <0x00000005>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10005000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10004000 {
+        interrupts = <0x00000004>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10004000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10003000 {
+        interrupts = <0x00000003>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10003000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10002000 {
+        interrupts = <0x00000002>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10002000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    virtio_mmio@10001000 {
+        interrupts = <0x00000001>;
+        interrupt-parent = <0x00000002>;
+        reg = <0x00000000 0x10001000 0x00000000 0x00001000>;
+        compatible = "virtio,mmio";
+    };
+    cpus {
+        #address-cells = <0x00000001>;
+        #size-cells = <0x00000000>;
+        timebase-frequency = <0x00989680>;
+        cpu@0 {
+            device_type = "cpu";
+            reg = <0x00000000>;
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv32imafdc";
+            mmu-type = "riscv,sv48";
+            clock-frequency = <0x3b9aca00>;
+            interrupt-controller {
+                #interrupt-cells = <0x00000001>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+                linux,phandle = <0x00000001>;
+                phandle = <0x00000001>;
+            };
+        };
+    };
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0x00000000 0x80000000 0x00000000 0x08000000>;
+    };
+    soc {
+        #address-cells = <0x00000002>;
+        #size-cells = <0x00000002>;
+        compatible = "riscv-virtio-soc";
+        ranges;
+        interrupt-controller@c000000 {
+            linux,phandle = <0x00000002>;
+            phandle = <0x00000002>;
+            riscv,ndev = <0x0000000a>;
+            riscv,max-priority = <0x00000007>;
+            reg-names = "control";
+            reg = <0x00000000 0x0c000000 0x00000000 0x04000000>;
+            interrupts-extended = <0x00000001 0x0000000b 0x00000001 0x00000009>;
+            interrupt-controller;
+            compatible = "riscv,plic0";
+            #interrupt-cells = <0x00000001>;
+        };
+        clint@2000000 {
+            interrupts-extended = <0x00000001 0x00000003 0x00000001 0x00000007>;
+            reg = <0x00000000 0x02000000 0x00000000 0x00010000>;
+            compatible = "riscv,clint0";
+        };
+    };
+};
+```
+
+可以用如下命令得到：
+
+```
+$ qemu-system-riscv32  -nographic -machine virt,dumpdtb=virt.out
+$ fdtdump virt.out
+```
+
+
+
+### Bootloader in RISC-V
+
+1. 从bios中得到 mhartid in a0, dtb addr in a1， call init_first_hart() //mentry.S
+
+2. 根据dtb，调用qeury_uart16660()获得 uart 硬件信息  //minit.c
+
+3. hart_init()进一步调用 mstatus_init(), fp_init(), delegate_traps() 完成初步硬件初始化 //minit.c
+
+   - mstatus_init:  Enable software interrupts,  Disable paging 
+   - delegate_traps:  send S-mode interrupts and most exceptions straight to S-mode
+
+   ​       IRQ包括：IRQ_S_SOFT ，IRQ_S_TIMER， IRQ_S_EXT
+
+   ​       Execption包括：MISALIGNED_FETCH， FETCH_PAGE_FAULT，BREAKPOINT，LOAD/STORE_PAGE_FAULT，USER_ECALL
+
+4. hls_init(0)：好像是对multi core的自己core做一些准备
+5. qeury_mem(dtb)：获得内存配置 base=0x80000000 size=128MB
+6. query_harts(dtb):查询其他cpu core
+7. query_clint(dtb):查询local interrupt  CLINT：Core Local Interruptor
+8. query_plic(dtb): 查询平台级的中断控制器 PLIC:Platform Level Interrupt Controller
+9. wake_harts(): 唤醒其他cpu cores
+10. plic_init, hart_plic_init, 初始化平台级的中断控制器
+11. memory_init(): 设置mem_size，保证页对齐。
+12. boot_loader(dtb) : call  enter_supervisor_mode(entry, hartid, dtb_output()); 跳到kernel处执行 //bbl.c
+13. enter_supervisor_mode: 设置PMP，设置 mstatus的MPP为PRV_S， MPIE为0, mscratch= MACHINE_STACK_TOP() - MENTRY_FRAME_SIZE, mepc=kernel entry, a0= hartid, a1=dtb addr 输出位置 在payload_end的后面的4MB页对齐处，为返回S mode做好设置, 执行 mret，返回到PRV态的kernel 入口处  //minit.c
+
