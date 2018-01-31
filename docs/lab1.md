@@ -466,3 +466,25 @@ rrrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrrrr
 ....
 ```
 
+
+
+### Flattened Device Tree (FDT)
+
+Device Tree是一种描述硬件的数据结构，它起源于 OpenFirmware (OF)。在Linux 2.6中，ARM架构的板极硬件细节过多地被硬编码在arch/arm/plat-xxx和arch/arm/mach-xxx，采用Device Tree后，许多硬件的细节可以直接透过它传递给OS kernel，而不再需要在kernel中进行大量的冗余编码。
+Device Tree由一系列被命名的结点（node）和属性（property）组成，而结点本身可包含子结点。所谓属性，其实就是成对出现的name和value。在Device Tree中，可描述的信息包括：
+
+- CPU的数量和类别
+- 内存基地址和大小
+- 总线和桥外设连接
+- 中断控制器和中断使用情况
+- GPIO控制器和GPIO使用情况
+- Clock控制器和Clock使用情况
+
+它基本上就是画一棵电路板上CPU、总线、设备组成的树，Bootloader会将这棵树传递给内核，然后内核可以识别这棵树，并根据它展开出内核中的platform_device、i2c_client、spi_device等设备，而这些设备用到的内存、IRQ等资源，也被传递给了内核，内核会将这些资源绑定给展开的相应的设备。
+
+
+
+参考
+
+- [ARM Linux 3.x的设备树（Device Tree）](http://www.cnblogs.com/wi100sh/p/4597898.html)
+- http://www.wowotech.net/linux_kenrel/dt_basic_concept.html
