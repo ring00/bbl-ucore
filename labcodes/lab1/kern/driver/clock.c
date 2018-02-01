@@ -2,6 +2,7 @@
 #include <defs.h>
 #include <sbi.h>
 #include <stdio.h>
+#include <riscv.h>
 
 volatile size_t ticks;
 
@@ -33,12 +34,13 @@ void clock_init(void) {
     // divided by 500 when using Spike(2MHz)
     // divided by 100 when using QEMU(10MHz)
     //timebase = sbi_timebase() / 500; //sbi_timebase=10000000
-	timebase = 10000000 / 500; //sbi_timebase=10000000
+	timebase = 10000000 / 100; //sbi_timebase=10000000
     clock_set_next_event();
 
     // initialize time counter 'ticks' to zero
     ticks = 0;
 
+    set_csr(sie, MIP_STIP);
     cprintf("++ setup timer interrupts\n");
 }
 

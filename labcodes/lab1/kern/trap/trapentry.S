@@ -98,6 +98,7 @@
     .endm
 
     .globl __alltraps
+    .align 2
 __alltraps:
     SAVE_ALL
 
